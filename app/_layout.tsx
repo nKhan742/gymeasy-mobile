@@ -1,24 +1,25 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { useFonts } from "expo-font";
+import { Stack } from "expo-router";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+
+  const [fontsLoaded] = useFonts({
+    "Inter-Regular": require("../assets/fonts/Inter_18pt-Regular.ttf"),
+    "Inter-Medium": require("../assets/fonts/Inter_18pt-Medium.ttf"),
+    "Inter-SemiBold": require("../assets/fonts/Inter_18pt-SemiBold.ttf"),
+    "Inter-Bold": require("../assets/fonts/Inter_18pt-Bold.ttf"),
+  });
+
+  if (!fontsLoaded) {
+    return null; // splash stays clean
+  }
+
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+    </Stack>
   );
 }

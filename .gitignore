@@ -7,7 +7,6 @@ node_modules/
 .expo/
 dist/
 web-build/
-expo-env.d.ts
 
 # Native
 .kotlin/
@@ -28,15 +27,13 @@ yarn-error.*
 
 # macOS
 .DS_Store
-*.pem
 
-# local env files
-.env*.local
+# env files (IMPORTANT)
+.env
+.env.*
 
 # typescript
 *.tsbuildinfo
-
-app-example
 
 # generated native folders
 /ios
