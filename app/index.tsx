@@ -1,33 +1,46 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
-import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Image,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import ScreenWrapper from "../components/layout/ScreenWrapper";
 
 export default function SplashScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      router.replace("/login");
-    }, 2200);
+    const boot = async () => {
+      const permissionsDone = await AsyncStorage.getItem("permissions_done");
 
-    return () => clearTimeout(timer);
+      setTimeout(() => {
+        if (!permissionsDone) {
+          router.replace("/(onboarding)/permissions");
+        } else {
+          router.replace("/(auth)/login");
+        }
+      }, 2200);
+    };
+
+    boot();
   }, []);
 
   return (
     <ScreenWrapper>
       <View style={styles.container}>
         <View style={styles.logoWrapper}>
-            <Image
-                source={require("../assets/images/logo.png")}
-                style={styles.logo}
-            />
+          <Image
+            source={require("../assets/images/logo.png")}
+            style={styles.logo}
+          />
         </View>
 
         <Text style={styles.title}>GymEasy</Text>
-        <Text style={styles.subtitle}>
-          Smart Gym Management App
-        </Text>
+        <Text style={styles.subtitle}>Smart Gym Management App</Text>
 
         <ActivityIndicator
           size="small"
@@ -38,6 +51,7 @@ export default function SplashScreen() {
     </ScreenWrapper>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {

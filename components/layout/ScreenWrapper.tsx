@@ -1,9 +1,9 @@
 import React from "react";
 import {
-    Dimensions,
-    ImageBackground,
-    StyleSheet,
-    View,
+  Dimensions,
+  ImageBackground,
+  StyleSheet,
+  View,
 } from "react-native";
 
 const { height, width } = Dimensions.get("window");

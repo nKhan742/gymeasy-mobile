@@ -1,16 +1,26 @@
+// import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import {
-    Image,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import ScreenWrapper from "../../components/layout/ScreenWrapper";
 import GlassInput from "../../components/ui/GlassInput";
 
+
+
+
 export default function LoginScreen() {
+
+  // const navigation = useNavigation<any>();
+    const router = useRouter();
+
+
   return (
     <ScreenWrapper>
       <View style={styles.container}>
@@ -86,9 +96,17 @@ export default function LoginScreen() {
 
         {/* FOOTER */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>New here?</Text>
-          <Text style={styles.register}> Register</Text>
-        </View>
+  <Text style={styles.footerText}>New here?</Text>
+
+  <TouchableOpacity
+    activeOpacity={0.7}
+    onPress={() => router.push("/(auth)/register")}
+  >
+    <Text style={styles.register}> Register</Text>
+  </TouchableOpacity>
+</View>
+
+
       </View>
     </ScreenWrapper>
   );
