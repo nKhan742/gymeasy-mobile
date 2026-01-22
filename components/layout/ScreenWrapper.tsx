@@ -1,12 +1,10 @@
 import React from "react";
 import {
-  Dimensions,
   ImageBackground,
+  SafeAreaView,
   StyleSheet,
   View,
 } from "react-native";
-
-const { height, width } = Dimensions.get("window");
 
 export default function ScreenWrapper({
   children,
@@ -16,12 +14,13 @@ export default function ScreenWrapper({
   return (
     <View style={styles.root}>
       <ImageBackground
-        // source={require("../../assets/images/bg.jpg")}
         source={require("../../assets/images/app-bg.png")}
         style={styles.background}
         resizeMode="cover"
       >
-        <View style={styles.overlay}>{children}</View>
+        <View style={styles.overlay}>
+          <SafeAreaView style={styles.safe}>{children}</SafeAreaView>
+        </View>
       </ImageBackground>
     </View>
   );
@@ -29,23 +28,20 @@ export default function ScreenWrapper({
 
 const styles = StyleSheet.create({
   root: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width,
-    height,
+    flex: 1,
+    backgroundColor: "#000000",
   },
 
   background: {
-    width,
-    height,
+    flex: 1,
   },
 
   overlay: {
     flex: 1,
-    // height: "100%",
     backgroundColor: "rgba(0,0,0,0.55)",
-    justifyContent: "center",
-    alignItems: "center",
+  },
+
+  safe: {
+    flex: 1,
   },
 });

@@ -1,5 +1,5 @@
 // import { useNavigation } from "@react-navigation/native";
-import { LinearGradient } from "expo-linear-gradient";
+import GlassButton from "@/components/ui/GlassButton";
 import { useRouter } from "expo-router";
 import {
   Image,
@@ -12,17 +12,43 @@ import {
 import ScreenWrapper from "../../components/layout/ScreenWrapper";
 import GlassInput from "../../components/ui/GlassInput";
 
+import api from "@/services/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+
+
 
 
 
 export default function LoginScreen() {
 
   // const navigation = useNavigation<any>();
-    const router = useRouter();
+  const router = useRouter();
+
+  const handleLogin = async () => {
+  try {
+    const res = await api.post("/auth/login", {
+      email: "test@gmail.com", // replace with input state
+      password: "123456",
+    });
+
+    const { token, user } = res.data;
+
+    await AsyncStorage.setItem("token", token);
+    await AsyncStorage.setItem("user", JSON.stringify(user));
+
+    router.replace("/(tabs)/dashboard");
+  } catch (error: any) {
+    console.log("LOGIN ERROR:", error.response?.data || error.message);
+    alert(error.response?.data?.message || "Login failed");
+  }
+};
+
 
 
   return (
     <ScreenWrapper>
+       <View style={styles.centerWrapper}>
       <View style={styles.container}>
 
         {/* LOGO */}
@@ -61,7 +87,7 @@ export default function LoginScreen() {
             placeholder="Phone or Email"
             placeholderTextColor="rgba(255,255,255,0.6)"
             style={styles.input}
-            />
+          />
         </GlassInput>
 
         <View style={{ height: 14 }} />
@@ -76,50 +102,54 @@ export default function LoginScreen() {
         </GlassInput>
 
         {/* FORGOT */}
-        <TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => router.push("/(auth)/forgot-password")}
+        >
           <Text style={styles.forgot}>Forgot Password?</Text>
         </TouchableOpacity>
 
         {/* LOGIN BUTTON */}
-        <TouchableOpacity style={{ width: "100%" }}>
-        <View style={styles.loginOutline}>
-            <LinearGradient
-            colors={["#4F7CFF", "#42E695"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.loginBtn}
-            >
-            <Text style={styles.loginText}>Login</Text>
-            </LinearGradient>
-        </View>
-        </TouchableOpacity>
+        <GlassButton
+  title="Login"
+  onPress={handleLogin}
+  style={{ marginTop: 18 }}
+/>
+
+
+
 
         {/* FOOTER */}
         <View style={styles.footer}>
-  <Text style={styles.footerText}>New here?</Text>
+          <Text style={styles.footerText}>New here?</Text>
 
-  <TouchableOpacity
-    activeOpacity={0.7}
-    onPress={() => router.push("/(auth)/register")}
-  >
-    <Text style={styles.register}> Register</Text>
-  </TouchableOpacity>
-</View>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => router.push("/(auth)/register")}
+          >
+            <Text style={styles.register}> Register</Text>
+          </TouchableOpacity>
+        </View>
 
 
+      </View>
       </View>
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingTop: 40,
-  },
+centerWrapper: {
+  flex: 1,
+  justifyContent: "center",
+  width: "100%",
+},
 
+container: {
+  width: "100%",
+  alignItems: "center",
+  paddingHorizontal: 24,
+},
   logoWrapper: {
     marginBottom: 16,
   },
@@ -188,12 +218,13 @@ const styles = StyleSheet.create({
     fontFamily: "Inter-Regular",
   },
 
-  input: {
-    color: "#ffffff",
-    fontFamily: "Inter-Regular",
-    fontSize: 15,
-    letterSpacing: 0.2,
-    },
+ input: {
+  color: "#ffffff",
+  fontFamily: "Inter-Regular",
+  fontSize: 15,
+  letterSpacing: 0.3,
+  paddingVertical: 0,
+},
   forgot: {
     alignSelf: "flex-end",
     color: "#cfcfcf",
@@ -217,27 +248,43 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontFamily: "Inter-SemiBold",
   },
-  loginOutline: {
-    width: "100%",
-    borderRadius: 14,
-    padding: 1.2, // creates shiny edge
-    backgroundColor: "rgba(255,255,255,0.35)",
-    marginTop: 6,
-    },
+  loginRim: {
+  width: "100%",
+  borderRadius: 34,
+  padding: 2, // shiny rim thickness
+  marginTop: 18,
 
-    loginBtn: {
-    width: "100%",
-    height: 54,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-    },
+  // shiny glass edge
+  backgroundColor: "rgba(255,255,255,0.45)",
+},
 
-    loginText: {
-    fontSize: 17,
-    fontFamily: "Inter-SemiBold",
-    color: "#ffffff",
-    },
+loginGlass: {
+  borderRadius: 32,
+  overflow: "hidden",
+
+  // frosted inner plate
+  backgroundColor: "rgba(255,255,255,0.10)",
+},
+
+loginGradient: {
+  height: 56,
+  borderRadius: 32,
+  justifyContent: "center",
+  alignItems: "center",
+
+  // softens gradient so it looks glassy
+  opacity: 0.92,
+},
+
+loginText: {
+  fontSize: 16,
+  fontFamily: "Inter-SemiBold",
+  color: "#ffffff",
+  letterSpacing: 0.3,
+},
+
+
+
 
 });
 

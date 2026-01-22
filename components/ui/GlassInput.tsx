@@ -1,11 +1,25 @@
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
+import React from "react";
 import { StyleSheet, View } from "react-native";
 
-export default function GlassInput({ children }: { children: React.ReactNode }) {
+export default function GlassInput({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <View style={styles.wrapper}>
       <BlurView intensity={35} tint="dark" style={styles.blur}>
-        {children}
+        <LinearGradient
+          colors={[
+            "rgba(255,255,255,0.18)",
+            "rgba(255,255,255,0.06)",
+          ]}
+          style={styles.inner}
+        >
+          {children}
+        </LinearGradient>
       </BlurView>
     </View>
   );
@@ -14,27 +28,20 @@ export default function GlassInput({ children }: { children: React.ReactNode }) 
 const styles = StyleSheet.create({
   wrapper: {
     width: "100%",
-    borderRadius: 12,
-
-    // shiny outline
+    borderRadius: 16,
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.28)",
-
-    // subtle glow
-    shadowColor: "#ffffff",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-
-    elevation: 4, // Android subtle glow
-    backgroundColor: "rgba(255,255,255,0.03)",
+    borderColor: "rgba(255,255,255,0.25)",
+    marginBottom: 14,
   },
 
   blur: {
+    width: "100%",
+  },
+
+  inner: {
     height: 52,
-    borderRadius: 12,
-    paddingHorizontal: 16,
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    paddingHorizontal: 16,
   },
 });

@@ -1,10 +1,10 @@
 import { Text } from "react-native";
 import ScreenWrapper from "../../components/layout/ScreenWrapper";
 
-export default function PaymentsScreen() {
+export default function WhatsAppScreen() {
   return (
     <ScreenWrapper>
-      <Text style={{ color: "#fff" }}>Payments</Text>
+      <Text style={{ color: "#fff" }}>WhatsApp</Text>
     </ScreenWrapper>
   );
 }

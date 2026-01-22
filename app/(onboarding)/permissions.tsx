@@ -4,10 +4,10 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Camera } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
-import * as MediaLibrary from "expo-media-library";
-import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import React from "react";
+import { Platform } from "react-native";
+
 import {
   Alert,
   StatusBar,
@@ -18,24 +18,40 @@ import {
 } from "react-native";
 
 export default function Permissions() {
+
+  
   const router = useRouter();
 
-  const requestAllPermissions = async () => {
-    const camera = await Camera.requestCameraPermissionsAsync();
-    const media = await MediaLibrary.requestPermissionsAsync();
-    await Notifications.requestPermissionsAsync();
+ const requestAllPermissions = async () => {
+  try {
+    console.log("Permission flow started");
 
-    if (camera.status !== "granted" || media.status !== "granted") {
-      Alert.alert(
-        "Permissions Required",
-        "Camera and Storage permissions are required to continue."
-      );
-      return;
+    // CAMERA (only real required permission)
+    if (Platform.OS !== "web") {
+      const camera = await Camera.requestCameraPermissionsAsync();
+
+      if (camera.status !== "granted") {
+        Alert.alert(
+          "Camera Required",
+          "Camera permission is required to scan Aadhaar."
+        );
+        return;
+      }
     }
 
+    // Save flag
     await AsyncStorage.setItem("permissions_done", "true");
-    router.replace("/login");
-  };
+
+    console.log("Permissions OK → navigating");
+    router.replace("/(auth)/login");
+
+  } catch (error) {
+    console.log("Permission error:", error);
+    Alert.alert("Error", "Permission request failed");
+  }
+};
+
+
 
   return (
     <ScreenWrapper>
@@ -55,10 +71,11 @@ export default function Permissions() {
         />
 
         <PermissionCard
-          icon={<Ionicons name="logo-whatsapp" size={22} color="#fff" />}
-          iconBg={["#3be17b", "#1db954"]}
-          title="WhatsApp"
-        />
+  icon={<Ionicons name="chatbubbles" size={22} color="#fff" />}
+  iconBg={["#3be17b", "#1db954"]}
+  title="WhatsApp Access"
+  subtitle="Send reminders via WhatsApp"
+ />
 
         <PermissionCard
           icon={<Ionicons name="notifications" size={22} color="#fff" />}

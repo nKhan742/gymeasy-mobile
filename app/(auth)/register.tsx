@@ -1,15 +1,15 @@
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-    Image,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
+import GlassButton from "@/components/ui/GlassButton";
 import ScreenWrapper from "../../components/layout/ScreenWrapper";
 import GlassInput from "../../components/ui/GlassInput";
 
@@ -34,122 +34,124 @@ export default function RegisterScreen() {
 
   return (
     <ScreenWrapper>
-      <View style={styles.container}>
+      <View style={styles.centerWrapper}>
+        <View style={styles.container}>
 
-        {/* LOGO */}
-        <View style={styles.logoWrapper}>
-          <Image
-            source={require("../../assets/images/logo.png")}
-            style={styles.logo}
-          />
-        </View>
-
-        {/* TITLE */}
-        <Text style={styles.title}>Create Your Gym Account</Text>
-        <Text style={styles.subtitle}>
-          Register once. Manage everything effortlessly.
-        </Text>
-
-        {/* INPUTS */}
-        <GlassInput>
-          <TextInput
-            placeholder="Gym Owner Name"
-            placeholderTextColor="rgba(255,255,255,0.6)"
-            style={styles.input}
-            value={ownerName}
-            onChangeText={setOwnerName}
-          />
-        </GlassInput>
-
-        <View style={styles.gap} />
-
-        <GlassInput>
-          <TextInput
-            placeholder="Phone Number"
-            placeholderTextColor="rgba(255,255,255,0.6)"
-            keyboardType="phone-pad"
-            style={styles.input}
-            value={phone}
-            onChangeText={setPhone}
-          />
-        </GlassInput>
-
-        <View style={styles.gap} />
-
-        <GlassInput>
-          <TextInput
-            placeholder="Email"
-            placeholderTextColor="rgba(255,255,255,0.6)"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-          />
-        </GlassInput>
-
-        <View style={styles.gap} />
-
-        <GlassInput>
-          <TextInput
-            placeholder="Password"
-            placeholderTextColor="rgba(255,255,255,0.6)"
-            secureTextEntry
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-          />
-        </GlassInput>
-
-        <View style={styles.gap} />
-
-        <GlassInput>
-          <TextInput
-            placeholder="Confirm Password"
-            placeholderTextColor="rgba(255,255,255,0.6)"
-            secureTextEntry
-            style={styles.input}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-          />
-        </GlassInput>
-
-        {/* REGISTER BUTTON */}
-        <TouchableOpacity style={{ width: "100%", marginTop: 22 }}>
-          <View style={styles.buttonOutline}>
-            <LinearGradient
-              colors={["#4F7CFF", "#42E695"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.button}
-            >
-              <Text style={styles.buttonText}>Register</Text>
-            </LinearGradient>
+          {/* LOGO */}
+          <View style={styles.logoWrapper}>
+            <Image
+              source={require("../../assets/images/logo.png")}
+              style={styles.logo}
+            />
           </View>
-        </TouchableOpacity>
 
-        {/* FOOTER */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Already have an account?</Text>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => router.replace("/(auth)/login")}
-          >
-            <Text style={styles.login}> Login</Text>
-          </TouchableOpacity>
-        </View>
+          {/* TITLE */}
+          <Text style={styles.title}>Create Your Gym Account</Text>
+          <Text style={styles.subtitle}>
+            Register once. Manage everything effortlessly.
+          </Text>
 
-      </View>
+          {/* INPUTS */}
+          <GlassInput>
+            <TextInput
+              placeholder="Gym Owner Name"
+              placeholderTextColor="rgba(255,255,255,0.6)"
+              style={styles.input}
+              value={ownerName}
+              onChangeText={setOwnerName}
+            />
+          </GlassInput>
+
+          <View style={styles.gap} />
+
+          <GlassInput>
+            <TextInput
+              placeholder="Phone Number"
+              placeholderTextColor="rgba(255,255,255,0.6)"
+              keyboardType="phone-pad"
+              style={styles.input}
+              value={phone}
+              onChangeText={setPhone}
+            />
+          </GlassInput>
+
+          <View style={styles.gap} />
+
+          <GlassInput>
+            <TextInput
+              placeholder="Email"
+              placeholderTextColor="rgba(255,255,255,0.6)"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+            />
+          </GlassInput>
+
+          <View style={styles.gap} />
+
+          <GlassInput>
+            <TextInput
+              placeholder="Password"
+              placeholderTextColor="rgba(255,255,255,0.6)"
+              secureTextEntry
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+            />
+          </GlassInput>
+
+          <View style={styles.gap} />
+
+          <GlassInput>
+            <TextInput
+              placeholder="Confirm Password"
+              placeholderTextColor="rgba(255,255,255,0.6)"
+              secureTextEntry
+              style={styles.input}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+          </GlassInput>
+
+          {/* REGISTER BUTTON */}
+
+          <GlassButton
+            title="Register"
+            onPress={() => {
+              // handle login
+            }}
+            style={{ marginTop: 18 }}
+          />
+
+          {/* FOOTER */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Already have an account?</Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => router.replace("/(auth)/login")}
+            >
+              <Text style={styles.login}> Login</Text>
+            </TouchableOpacity>
+          </View>
+
+        </View></View>
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  centerWrapper: {
     flex: 1,
+    justifyContent: "center",
+    width: "100%",
+  },
+
+  container: {
+    width: "100%",
     alignItems: "center",
     paddingHorizontal: 24,
-    paddingTop: 40,
   },
 
   logoWrapper: {

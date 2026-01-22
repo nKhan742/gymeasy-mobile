@@ -2,7 +2,6 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 
 export default function RootLayout() {
-
   const [fontsLoaded] = useFonts({
     "Inter-Regular": require("../assets/fonts/Inter_18pt-Regular.ttf"),
     "Inter-Medium": require("../assets/fonts/Inter_18pt-Medium.ttf"),
@@ -11,12 +10,26 @@ export default function RootLayout() {
   });
 
   if (!fontsLoaded) {
-    return null; // splash stays clean
+    return null;
   }
 
-
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+
+        // 🔥 Smooth global transitions
+        animation: "fade",
+        animationDuration: 260,
+
+        // Natural gesture handling
+        gestureEnabled: true,
+         // 🔴 THIS FIXES WHITE FLASH
+    contentStyle: {
+      backgroundColor: "#000000",
+    },
+      }}
+    >
       <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
