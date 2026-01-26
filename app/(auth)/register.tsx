@@ -10,26 +10,61 @@ import {
 } from "react-native";
 
 import GlassButton from "@/components/ui/GlassButton";
+import { useAuth } from "@/hooks/useAuth";
 import ScreenWrapper from "../../components/layout/ScreenWrapper";
 import GlassInput from "../../components/ui/GlassInput";
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const { register, isLoading } = useAuth();
 
   const [ownerName, setOwnerName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
 
-  const handleRegister = () => {
-    console.log({
-      ownerName,
-      phone,
-      email,
-      password,
-      confirmPassword,
-    });
+  const handleRegister = async () => {
+    if (!ownerName.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+      setError("Please fill in all required fields");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      return;
+    }
+
+    try {
+      setError("");
+      await register(email.trim(), password, ownerName.trim());
+      // Small delay to ensure state is settled before navigation
+      setTimeout(() => {
+        router.replace('/(tabs)/dashboard');
+      }, 100);
+    } catch (error: any) {
+      console.log("REGISTER ERROR:", error.response?.data || error.message);
+      const statusCode = error.response?.status;
+      let errorMessage = "Registration failed. Please try again.";
+
+      if (statusCode === 409) {
+        errorMessage = "An account with this email already exists.";
+      } else if (statusCode === 400) {
+        errorMessage = error.response?.data?.message || "Invalid registration details.";
+      } else if (statusCode >= 500) {
+        errorMessage = "Server error. Please try again later.";
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+
+      setError(errorMessage);
+    }
   };
 
   return (
@@ -115,14 +150,18 @@ export default function RegisterScreen() {
             />
           </GlassInput>
 
+          {/* ERROR MESSAGE */}
+          {error ? (
+            <Text style={styles.errorText}>{error}</Text>
+          ) : null}
+
           {/* REGISTER BUTTON */}
 
           <GlassButton
-            title="Register"
-            onPress={() => {
-              // handle login
-            }}
+            title={isLoading ? "Creating Account..." : "Register"}
+            onPress={handleRegister}
             style={{ marginTop: 18 }}
+            disabled={isLoading}
           />
 
           {/* FOOTER */}
@@ -224,5 +263,13 @@ const styles = StyleSheet.create({
   login: {
     color: "#ffffff",
     fontFamily: "Inter-SemiBold",
+  },
+
+  errorText: {
+    color: "#ff6b6b",
+    fontSize: 14,
+    fontFamily: "Inter-Regular",
+    marginTop: 8,
+    textAlign: "center",
   },
 });

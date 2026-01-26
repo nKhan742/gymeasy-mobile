@@ -31,6 +31,7 @@ export default function SplashScreen() {
 
   return (
     <ScreenWrapper>
+      <View style={styles.centerWrapper}>
       <View style={styles.container}>
         <View style={styles.logoWrapper}>
           <Image
@@ -47,16 +48,24 @@ export default function SplashScreen() {
           color="#ffffff"
           style={{ marginTop: 28 }}
         />
-      </View>
+      </View></View>
     </ScreenWrapper>
   );
 }
 
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: "center",
-  },
+  centerWrapper: {
+  flex: 1,
+  justifyContent: "center",
+  width: "100%",
+},
+
+container: {
+  width: "100%",
+  alignItems: "center",
+  paddingHorizontal: 24,
+},
 
   logo: {
     width: 110,

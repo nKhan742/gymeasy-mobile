@@ -1,5 +1,6 @@
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
+import { AuthGuard } from "../components/AuthGuard";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -9,30 +10,35 @@ export default function RootLayout() {
     "Inter-Bold": require("../assets/fonts/Inter_18pt-Bold.ttf"),
   });
 
+  // Auth state is now properly managed by Zustand persist hydration
+  // No need for manual loading state management
+
   if (!fontsLoaded) {
     return null;
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
+    <AuthGuard>
+      <Stack
+        screenOptions={{
+          headerShown: false,
 
-        // 🔥 Smooth global transitions
-        animation: "fade",
-        animationDuration: 260,
+          // 🔥 Smooth global transitions
+          animation: "fade",
+          animationDuration: 260,
 
-        // Natural gesture handling
-        gestureEnabled: true,
-         // 🔴 THIS FIXES WHITE FLASH
-    contentStyle: {
-      backgroundColor: "#000000",
-    },
-      }}
-    >
-      <Stack.Screen name="index" />
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(tabs)" />
-    </Stack>
+          // Natural gesture handling
+          gestureEnabled: true,
+           // 🔴 THIS FIXES WHITE FLASH
+      contentStyle: {
+        backgroundColor: "#000000",
+      },
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(tabs)" />
+      </Stack>
+    </AuthGuard>
   );
 }

@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ColorValue, StyleSheet, Text, View } from "react-native";
 
 export default function PermissionCard({
   icon,
@@ -9,7 +9,7 @@ export default function PermissionCard({
   subtitle,
 }: {
   icon: React.ReactNode;
-  iconBg: string[];
+  iconBg: readonly [ColorValue, ColorValue, ...ColorValue[]];
   title: string;
   subtitle?: string;
 }) {

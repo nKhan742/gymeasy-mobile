@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import {
   StyleSheet,
   Text,
@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 
 function TabButton({ icon, label, focused, onPress }: any) {
   return (
@@ -36,6 +37,7 @@ function TabButton({ icon, label, focused, onPress }: any) {
 }
 
 export default function TabLayout() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
 
   return (
@@ -45,16 +47,22 @@ export default function TabLayout() {
         pointerEvents="box-none"
         style={[
           styles.fabWrapper,
-          { bottom: insets.bottom + 28 },
+          { bottom: insets.bottom + 10 },
         ]}
       >
-        <LinearGradient
-          colors={["#42E695", "#3BB2B8"]}
-          style={styles.fab}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.push("/add")}
         >
-          <Ionicons name="add" size={34} color="#fff" />
-        </LinearGradient>
+          <LinearGradient
+            colors={["#42E695", "#3BB2B8"]}
+            style={styles.fab}
+          >
+            <Ionicons name="add" size={25} color="#fff" />
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
+
 
       <Tabs
         screenOptions={{
@@ -170,8 +178,8 @@ const styles = StyleSheet.create({
   },
 
   fab: {
-    width: 68,
-    height: 68,
+    width: 50,
+    height: 50,
     borderRadius: 34,
     justifyContent: "center",
     alignItems: "center",

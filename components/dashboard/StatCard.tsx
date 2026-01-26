@@ -1,13 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { StyleSheet, Text, View } from "react-native";
+import { ColorValue, StyleSheet, Text, View } from "react-native";
 
 type Props = {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
   sub?: string;
-  gradient: string[];
+  gradient: readonly [ColorValue, ColorValue, ...ColorValue[]];
 };
 
 export default function StatCard({

@@ -1,6 +1,10 @@
 // import { useNavigation } from "@react-navigation/native";
 import GlassButton from "@/components/ui/GlassButton";
+import { useAuth } from "@/hooks/useAuth";
+import * as Google from "expo-auth-session/providers/google";
 import { useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import React, { useState } from "react";
 import {
   Image,
   StyleSheet,
@@ -12,37 +16,95 @@ import {
 import ScreenWrapper from "../../components/layout/ScreenWrapper";
 import GlassInput from "../../components/ui/GlassInput";
 
-import api from "@/services/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-
-
-
-
-
 export default function LoginScreen() {
-
-  // const navigation = useNavigation<any>();
   const router = useRouter();
+  const { login, googleLogin, isLoading } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  // Configure WebBrowser for auth session
+  React.useEffect(() => {
+    WebBrowser.warmUpAsync();
+    return () => {
+      WebBrowser.coolDownAsync();
+    };
+  }, []);
+
+  // Google Auth configuration
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: "YOUR_ANDROID_CLIENT_ID", // Replace with your actual client ID
+    iosClientId: "YOUR_IOS_CLIENT_ID", // Replace with your actual client ID
+    webClientId: "YOUR_WEB_CLIENT_ID", // Replace with your actual client ID
+  });
+
+  // Handle Google auth response
+  React.useEffect(() => {
+    if (response?.type === "success") {
+      const { authentication } = response;
+      handleGoogleLogin(authentication?.accessToken);
+    }
+  }, [response]);
+
+  const handleGoogleLogin = async (accessToken: string | undefined) => {
+    if (!accessToken) {
+      setError("Google authentication failed");
+      return;
+    }
+
+    try {
+      setError("");
+      // Get user info from Google
+      const userInfoResponse = await fetch("https://www.googleapis.com/userinfo/v2/me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const userInfo = await userInfoResponse.json();
+
+      // For now, we'll use the access token as the idToken
+      // In a real app, you'd exchange the access token for an ID token
+      await googleLogin(accessToken);
+
+      // Small delay to ensure state is settled before navigation
+      setTimeout(() => {
+        router.replace('/(tabs)/dashboard');
+      }, 100);
+    } catch (error: any) {
+      console.log("GOOGLE LOGIN ERROR:", error);
+      setError("Google login failed. Please try again.");
+    }
+  };
 
   const handleLogin = async () => {
-  try {
-    const res = await api.post("/auth/login", {
-      email: "test@gmail.com", // replace with input state
-      password: "123456",
-    });
+    if (!email.trim() || !password.trim()) {
+      setError("Please fill in all fields");
+      return;
+    }
 
-    const { token, user } = res.data;
+    try {
+      setError("");
+      await login(email.trim(), password);
+      // Small delay to ensure state is settled before navigation
+      setTimeout(() => {
+        router.replace('/(tabs)/dashboard');
+      }, 100);
+    } catch (error: any) {
+      console.log("LOGIN ERROR:", error.response?.data || error.message);
+      const statusCode = error.response?.status;
+      let errorMessage = "Login failed. Please try again.";
 
-    await AsyncStorage.setItem("token", token);
-    await AsyncStorage.setItem("user", JSON.stringify(user));
+      if (statusCode === 401) {
+        errorMessage = "Invalid email or password. Please check your credentials.";
+      } else if (statusCode === 400) {
+        errorMessage = error.response?.data?.message || "Invalid login details.";
+      } else if (statusCode >= 500) {
+        errorMessage = "Server error. Please try again later.";
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
 
-    router.replace("/(tabs)/dashboard");
-  } catch (error: any) {
-    console.log("LOGIN ERROR:", error.response?.data || error.message);
-    alert(error.response?.data?.message || "Login failed");
-  }
-};
+      setError(errorMessage);
+    }
+  };
 
 
 
@@ -66,7 +128,11 @@ export default function LoginScreen() {
         </Text>
 
         {/* GOOGLE BUTTON */}
-        <TouchableOpacity style={styles.googleBtn}>
+        <TouchableOpacity 
+          style={styles.googleBtn}
+          onPress={() => promptAsync()}
+          disabled={!request}
+        >
           <Image
             source={require("../../assets/images/google.png")}
             style={styles.googleIcon}
@@ -87,6 +153,10 @@ export default function LoginScreen() {
             placeholder="Phone or Email"
             placeholderTextColor="rgba(255,255,255,0.6)"
             style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
           />
         </GlassInput>
 
@@ -98,8 +168,15 @@ export default function LoginScreen() {
             placeholderTextColor="rgba(255,255,255,0.6)"
             secureTextEntry
             style={styles.input}
+            value={password}
+            onChangeText={setPassword}
           />
         </GlassInput>
+
+        {/* ERROR MESSAGE */}
+        {error ? (
+          <Text style={styles.errorText}>{error}</Text>
+        ) : null}
 
         {/* FORGOT */}
         <TouchableOpacity
@@ -111,9 +188,10 @@ export default function LoginScreen() {
 
         {/* LOGIN BUTTON */}
         <GlassButton
-  title="Login"
+  title={isLoading ? "Logging in..." : "Login"}
   onPress={handleLogin}
   style={{ marginTop: 18 }}
+  disabled={isLoading}
 />
 
 
@@ -283,8 +361,13 @@ loginText: {
   letterSpacing: 0.3,
 },
 
-
-
+errorText: {
+  color: "#ff6b6b",
+  fontSize: 14,
+  fontFamily: "Inter-Regular",
+  marginTop: 8,
+  textAlign: "center",
+},
 
 });
 
