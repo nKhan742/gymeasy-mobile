@@ -5,6 +5,8 @@ export interface User {
   role?: string;
   gymId?: string;
   gymName?: string;
+  phone?: string;
+  address?: string;
 }
 
 export interface LoginRequest {

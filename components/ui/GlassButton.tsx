@@ -1,3 +1,4 @@
+import { useThemeContext } from "@/contexts/ThemeContext";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
@@ -15,12 +16,28 @@ interface GlassButtonProps {
   disabled?: boolean;
 }
 
+// Helper function to convert hex to rgba
+const hexToRgba = (hex: string, alpha: number): string => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
+
 export default function GlassButton({
   title,
   onPress,
   style,
   disabled = false,
 }: GlassButtonProps) {
+  const { colors } = useThemeContext();
+  
+  // Create rgba versions for rim and fill
+  const rimColor1 = hexToRgba(colors.gradient[0], 0.9);
+  const rimColor2 = hexToRgba(colors.gradient[1], 0.9);
+  const fillColor1 = hexToRgba(colors.gradient[0], 0.85);
+  const fillColor2 = hexToRgba(colors.gradient[1], 0.85);
+
   return (
     <TouchableOpacity
       activeOpacity={0.9}
@@ -30,11 +47,7 @@ export default function GlassButton({
     >
       {/* SHINY GRADIENT RIM */}
       <LinearGradient
-        colors={[
-          "rgba(120,160,255,0.9)",
-          "rgba(90,230,190,0.9)",
-          "rgba(120,160,255,0.9)",
-        ]}
+        colors={[rimColor1, rimColor2, rimColor1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.rim}
@@ -43,10 +56,7 @@ export default function GlassButton({
         <View style={styles.glass}>
           {/* BUTTON FILL */}
           <LinearGradient
-            colors={[
-              "rgba(70,120,255,0.85)",
-              "rgba(70,200,170,0.85)",
-            ]}
+            colors={[fillColor1, fillColor2]}
             start={{ x: 0.1, y: 0.2 }}
             end={{ x: 0.9, y: 0.8 }}
             style={styles.fill}

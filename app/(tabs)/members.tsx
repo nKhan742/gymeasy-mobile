@@ -1,9 +1,18 @@
+import Header from "@/components/layout/Header";
 import ScreenWrapper from "@/components/layout/ScreenWrapper";
+import {
+  STATUS_ACTIVE,
+  STATUS_EXPIRED,
+  STATUS_EXPIRING,
+  STATUS_YEARLY
+} from "@/constants/colors";
+import { useThemeContext } from "@/contexts/ThemeContext";
 import { getMembers } from "@/services/member.service";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
   FlatList,
+  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,6 +23,7 @@ import {
 const FILTERS = ["All", "Active", "Expired", "Expiring Soon"];
 
 export default function MembersScreen() {
+  const { colors } = useThemeContext();
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("All");
@@ -67,19 +77,20 @@ export default function MembersScreen() {
   if (loading) {
     return (
       <ScreenWrapper>
-        <View style={styles.loader}>
-          <Text style={{ color: "#fff" }}>Loading members...</Text>
-        </View>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.loader}>
+            <Text style={{ color: "#fff" }}>Loading members...</Text>
+          </View>
+        </SafeAreaView>
       </ScreenWrapper>
     );
   }
 
   return (
     <ScreenWrapper>
-      <View style={styles.container}>
-        {/* HEADER */}
-        <Text style={styles.headerTitle}>Members</Text>
-
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Members" />
+        <View style={styles.container}>
         {/* SEARCH */}
         <View style={styles.searchBox}>
           <Ionicons name="search" size={18} color="#cfcfcf" />
@@ -99,7 +110,7 @@ export default function MembersScreen() {
               key={f}
               style={[
                 styles.filterChip,
-                activeFilter === f && styles.filterActive,
+                activeFilter === f && [styles.filterActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
               ]}
               onPress={() => setActiveFilter(f)}
             >
@@ -159,22 +170,28 @@ export default function MembersScreen() {
             );
           }}
         />
-      </View>
+        </View>
+      </SafeAreaView>
     </ScreenWrapper>
   );
 }
 
 const STATUS_COLORS: any = {
-  Active: { backgroundColor: "#3b82f6" },
-  Expired: { backgroundColor: "#f59e0b" },
-  "Expiring Soon": { backgroundColor: "#fb7185" },
-  Yearly: { backgroundColor: "#6366f1" },
+  Active: { backgroundColor: STATUS_ACTIVE },
+  Expired: { backgroundColor: STATUS_EXPIRED },
+  "Expiring Soon": { backgroundColor: STATUS_EXPIRING },
+  Yearly: { backgroundColor: STATUS_YEARLY },
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+
   container: {
     flex: 1,
     paddingHorizontal: 16,
+    paddingBottom: 20,
   },
 
   headerTitle: {

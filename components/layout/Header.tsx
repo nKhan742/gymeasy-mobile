@@ -2,35 +2,44 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ERROR } from "../../constants/colors";
+import { useThemeContext } from "../../contexts/ThemeContext";
 import { useAuth } from "../../hooks/useAuth";
 
-export default function DashboardHeader() {
+interface HeaderProps {
+  title?: string;
+}
+
+export default function Header({ title }: HeaderProps) {
   const { user, logout } = useAuth();
+  const { colors } = useThemeContext();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  const displayTitle = title || user?.gymName || user?.name || "GymEasy";
+
   const handleLogout = () => {
-    console.log('Logout button pressed');
+    console.log("Logout button pressed");
     Alert.alert(
-      'Logout',
-      'Are you sure you want to log out?',
+      "Logout",
+      "Are you sure you want to log out?",
       [
         {
-          text: 'Cancel',
-          style: 'cancel',
+          text: "Cancel",
+          style: "cancel",
         },
         {
-          text: 'Logout',
-          style: 'destructive',
+          text: "Logout",
+          style: "destructive",
           onPress: async () => {
             try {
               await logout();
               setTimeout(() => {
-                router.replace('/login');
+                router.replace("/(auth)/login");
               }, 100);
             } catch (error) {
-              console.error('Logout error:', error);
-              Alert.alert('Error', 'Failed to logout. Please try again.');
+              console.error("Logout error:", error);
+              Alert.alert("Error", "Failed to logout. Please try again.");
             }
           },
         },
@@ -39,33 +48,31 @@ export default function DashboardHeader() {
   };
 
   const handleSettings = () => {
-    // Navigate to settings screen (to be implemented)
-    console.log('Settings pressed');
+    router.push("/settings");
   };
 
   const handleNotifications = () => {
-    // Navigate to notifications screen (to be implemented)
-    console.log('Notifications pressed');
+    router.push("/notifications");
   };
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 16) }]}>
-      {/* Gym Name */}
-      <Text style={styles.title}>{user?.gymName || user?.name || 'GymX Fitness'}</Text>
+      {/* Title */}
+      <Text style={styles.title}>{displayTitle}</Text>
 
       {/* Right Icons */}
       <View style={styles.rightIcons}>
         <TouchableOpacity style={styles.iconButton} onPress={handleNotifications}>
-          <Ionicons name="notifications-outline" size={24} color="#fff" />
-          <View style={styles.dot} />
+          <Ionicons name="notifications-outline" size={24} color={colors.primary} />
+          <View style={[styles.dot, { backgroundColor: ERROR }]} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.iconButton} onPress={handleSettings}>
-          <Ionicons name="settings-outline" size={24} color="#fff" />
+          <Ionicons name="settings-outline" size={24} color={colors.primary} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color="#fff" />
+          <Ionicons name="log-out-outline" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
     </View>
@@ -78,12 +85,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 22,
+    paddingHorizontal: 16,
   },
 
   title: {
     color: "#fff",
     fontSize: 20,
     fontFamily: "Inter-Bold",
+    flex: 1,
   },
 
   rightIcons: {
@@ -103,6 +112,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#ff4d4f",
+    backgroundColor: ERROR,
   },
 });

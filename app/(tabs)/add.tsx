@@ -1,11 +1,16 @@
+import Header from "@/components/layout/Header";
 import ScreenWrapper from "@/components/layout/ScreenWrapper";
 import GlassButton from "@/components/ui/GlassButton";
 import GlassInput from "@/components/ui/GlassInput";
+import { addMember } from "@/services/member.service";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
+  Modal,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +20,9 @@ import {
 } from "react-native";
 
 export default function AddMemberScreen() {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -24,8 +32,23 @@ export default function AddMemberScreen() {
     feesPaid: false,
   });
 
+  const plans = [
+    { label: "Monthly", value: "Monthly", amount: "1500" },
+    { label: "Quarterly", value: "Quarterly", amount: "3000" },
+    { label: "Yearly", value: "Yearly", amount: "10000" },
+  ];
+
   const handleChange = (key: string, value: any) => {
     setForm({ ...form, [key]: value });
+  };
+
+  const handlePlanSelect = (selectedPlan: string, selectedAmount: string) => {
+    setForm({
+      ...form,
+      plan: selectedPlan,
+      amount: selectedAmount,
+    });
+    setShowPlanModal(false);
   };
 
   // 📷 Aadhaar Scan
@@ -50,24 +73,59 @@ export default function AddMemberScreen() {
     }
   };
 
-  const saveMember = () => {
+  const saveMember = async () => {
     if (!form.name || !form.phone) {
       Alert.alert("Error", "Name and phone are required");
       return;
     }
 
-    console.log("NEW MEMBER:", form);
-    Alert.alert("Success", "Member added successfully");
+    try {
+      setIsLoading(true);
+      const result = await addMember({
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        address: form.address.trim() || undefined,
+        plan: form.plan.trim() || undefined,
+        amount: form.amount.trim() || undefined,
+        feesPaid: form.feesPaid,
+      });
+
+      console.log("MEMBER ADDED:", result);
+      Alert.alert("Success", "Member added successfully", [
+        {
+          text: "OK",
+          onPress: () => {
+            setForm({
+              name: "",
+              phone: "",
+              address: "",
+              plan: "",
+              amount: "",
+              feesPaid: false,
+            });
+            router.replace("/(tabs)/members");
+          },
+        },
+      ]);
+    } catch (error: any) {
+      console.log("ADD MEMBER ERROR:", error.response?.data || error.message);
+      const errorMessage =
+        error.response?.data?.message || "Failed to add member. Please try again.";
+      Alert.alert("Error", errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <ScreenWrapper>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContainer}
-      >
-        <View style={styles.centerWrapper}>
-          <Text style={styles.header}>Add Member</Text>
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Add Member" />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContainer}
+        >
+          <View style={styles.centerWrapper}>
 
           {/* 📷 Aadhaar Scan */}
           <TouchableOpacity
@@ -118,15 +176,60 @@ export default function AddMemberScreen() {
 
           <View style={styles.gap} />
 
-          <GlassInput>
-            <TextInput
-              placeholder="Plan (Monthly / Yearly)"
-              placeholderTextColor="rgba(255,255,255,0.6)"
-              style={styles.input}
-              value={form.plan}
-              onChangeText={(v) => handleChange("plan", v)}
-            />
-          </GlassInput>
+          {/* Plan Select Box */}
+          <TouchableOpacity
+            style={styles.planButton}
+            onPress={() => setShowPlanModal(true)}
+          >
+            <Text
+              style={[
+                styles.planButtonText,
+                !form.plan && styles.planButtonPlaceholder,
+              ]}
+            >
+              {form.plan || "Select Plan"}
+            </Text>
+            <Ionicons name="chevron-down" size={20} color="rgba(255,255,255,0.6)" />
+          </TouchableOpacity>
+
+          {/* Plan Modal */}
+          <Modal
+            visible={showPlanModal}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setShowPlanModal(false)}
+          >
+            <TouchableOpacity
+              style={styles.modalOverlay}
+              activeOpacity={1}
+              onPress={() => setShowPlanModal(false)}
+            >
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Select Plan</Text>
+                {plans.map((plan) => (
+                  <TouchableOpacity
+                    key={plan.value}
+                    style={[
+                      styles.planOption,
+                      form.plan === plan.value && styles.planOptionActive,
+                    ]}
+                    onPress={() =>
+                      handlePlanSelect(plan.value, plan.amount)
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.planOptionText,
+                        form.plan === plan.value && styles.planOptionTextActive,
+                      ]}
+                    >
+                      {plan.label} - ₹{plan.amount}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableOpacity>
+          </Modal>
 
           <View style={styles.gap} />
 
@@ -164,17 +267,23 @@ export default function AddMemberScreen() {
           </TouchableOpacity>
 
           <GlassButton
-            title="Save Member"
+            title={isLoading ? "Adding..." : "Save Member"}
             onPress={saveMember}
             style={{ marginTop: 28 }}
+            disabled={isLoading}
           />
         </View>
       </ScrollView>
+      </SafeAreaView>
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+
   scrollContainer: {
     flexGrow: 1,
   },
@@ -185,14 +294,6 @@ const styles = StyleSheet.create({
     width: "100%",
     padding: 20,
     paddingBottom: 60,
-  },
-
-  header: {
-    fontSize: 22,
-    color: "#fff",
-    fontFamily: "Inter-SemiBold",
-    textAlign: "center",
-    marginBottom: 24,
   },
 
   scanCard: {
@@ -247,5 +348,77 @@ const styles = StyleSheet.create({
   checkboxText: {
     color: "#fff",
     fontFamily: "Inter-Medium",
+  },
+
+  planButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+    marginBottom: 0,
+  },
+
+  planButtonText: {
+    color: "#fff",
+    fontFamily: "Inter-Regular",
+    fontSize: 15,
+    flex: 1,
+  },
+
+  planButtonPlaceholder: {
+    color: "rgba(255,255,255,0.6)",
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+
+  modalContent: {
+    backgroundColor: "#1a1a2e",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 30,
+  },
+
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: "Inter-SemiBold",
+    color: "#fff",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+
+  planOption: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+
+  planOptionActive: {
+    backgroundColor: "rgba(66, 230, 149, 0.2)",
+    borderColor: "#42E695",
+  },
+
+  planOptionText: {
+    color: "#fff",
+    fontFamily: "Inter-Medium",
+    fontSize: 15,
+  },
+
+  planOptionTextActive: {
+    color: "#42E695",
   },
 });

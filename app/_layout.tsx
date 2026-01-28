@@ -1,6 +1,7 @@
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { AuthGuard } from "../components/AuthGuard";
+import { ThemeProvider } from "../contexts/ThemeContext";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -18,27 +19,31 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthGuard>
-      <Stack
-        screenOptions={{
-          headerShown: false,
+    <ThemeProvider>
+      <AuthGuard>
+        <Stack
+          screenOptions={{
+            headerShown: false,
 
-          // 🔥 Smooth global transitions
-          animation: "fade",
-          animationDuration: 260,
+            // 🔥 Smooth global transitions
+            animation: "fade",
+            animationDuration: 260,
 
-          // Natural gesture handling
-          gestureEnabled: true,
-           // 🔴 THIS FIXES WHITE FLASH
-      contentStyle: {
-        backgroundColor: "#000000",
-      },
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-      </Stack>
-    </AuthGuard>
+            // Natural gesture handling
+            gestureEnabled: true,
+             // 🔴 THIS FIXES WHITE FLASH
+        contentStyle: {
+          backgroundColor: "#000000",
+        },
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="notifications" />
+          <Stack.Screen name="settings" />
+        </Stack>
+      </AuthGuard>
+    </ThemeProvider>
   );
 }

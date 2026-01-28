@@ -3,15 +3,17 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, useRouter } from "expo-router";
 import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useThemeContext } from "../../contexts/ThemeContext";
 
 
 function TabButton({ icon, label, focused, onPress }: any) {
+  const { colors } = useThemeContext();
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -21,13 +23,13 @@ function TabButton({ icon, label, focused, onPress }: any) {
       <Ionicons
         name={icon}
         size={22}
-        color={focused ? "#42E695" : "#b7b9d6"}
+        color={focused ? colors.primary : "#b7b9d6"}
         style={focused && styles.activeIcon}
       />
       <Text
         style={[
           styles.tabLabel,
-          focused && styles.activeLabel,
+          focused && [styles.activeLabel, { color: colors.primary }],
         ]}
       >
         {label}
@@ -38,6 +40,7 @@ function TabButton({ icon, label, focused, onPress }: any) {
 
 export default function TabLayout() {
   const router = useRouter();
+  const { colors } = useThemeContext();
   const insets = useSafeAreaInsets();
 
   return (
@@ -55,7 +58,7 @@ export default function TabLayout() {
           onPress={() => router.push("/add")}
         >
           <LinearGradient
-            colors={["#42E695", "#3BB2B8"]}
+            colors={colors.gradient}
             style={styles.fab}
           >
             <Ionicons name="add" size={25} color="#fff" />
