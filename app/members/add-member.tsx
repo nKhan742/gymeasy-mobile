@@ -1,10 +1,12 @@
-import React from "react";
-import { Text, View } from "react-native";
+import React, { useEffect } from "react";
+import { useRouter } from "expo-router";
 
 export default function AddMemberScreen() {
-  return (
-    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-      <Text>Add Member Screen - Coming Soon</Text>
-    </View>
-  );
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/(tabs)/add");
+  }, []);
+
+  return null;
 }

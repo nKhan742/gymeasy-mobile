@@ -9,9 +9,11 @@ import {
 import { useThemeContext } from "@/contexts/ThemeContext";
 import { getMembers } from "@/services/member.service";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
+  RefreshControl,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -26,25 +28,50 @@ export default function MembersScreen() {
   const { colors } = useThemeContext();
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    const fetchMembers = async () => {
-      try {
-        setLoading(true);
-        const data = await getMembers();
-        setMembers(data || []);
-      } catch (err) {
-        console.log("FETCH MEMBERS ERROR:", err);
-        setMembers([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchMembers = async () => {
+    try {
+      setLoading(true);
+      console.log("🔵 fetchMembers called");
+      const data = await getMembers();
+      console.log("✅ Members data received:", data);
+      console.log("📊 Members count:", data?.length || 0);
+      setMembers(data || []);
+    } catch (err) {
+      console.log("❌ FETCH MEMBERS ERROR:", err);
+      setMembers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Fetch on mount
+  useEffect(() => {
     fetchMembers();
   }, []);
+
+  // Refetch when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log("🔄 Members screen focused - refetching data");
+      fetchMembers();
+    }, [])
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const data = await getMembers();
+      setMembers(data || []);
+    } catch (err) {
+      console.log("❌ REFRESH ERROR:", err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const isExpiringSoon = (expiry: string) => {
     const today = new Date();
@@ -55,23 +82,51 @@ export default function MembersScreen() {
     return diffDays <= 7 && diffDays >= 0;
   };
 
-  const filteredMembers = (members || []).filter((m) => {
-    let computedStatus = m.status;
-
-    if (m.status === "Active" && isExpiringSoon(m.expiry)) {
-      computedStatus = "Expiring Soon";
+  const getMemberStatus = (member: any) => {
+    // If member has a status field, use it
+    if (member.status) {
+      if (member.status === "Active" && isExpiringSoon(member.expiry)) {
+        return "Expiring Soon";
+      }
+      return member.status;
     }
 
-    if (activeFilter !== "All" && computedStatus !== activeFilter)
-      return false;
+    // Otherwise calculate from expiry date
+    if (!member.expiry) {
+      return "Active";
+    }
 
-    if (
-      search &&
-      !m.name.toLowerCase().includes(search.toLowerCase())
-    )
+    const today = new Date();
+    const expiry = new Date(member.expiry);
+
+    if (expiry < today) {
+      return "Expired";
+    } else if (isExpiringSoon(member.expiry)) {
+      return "Expiring Soon";
+    } else {
+      return "Active";
+    }
+  };
+
+  const filteredMembers = (members || []).filter((m) => {
+    const computedStatus = getMemberStatus(m);
+    console.log(`Member: ${m.name}, Status: ${computedStatus}, Filter: ${activeFilter}`);
+
+    if (activeFilter !== "All" && computedStatus !== activeFilter) {
       return false;
+    }
+
+    if (search && !m.name.toLowerCase().includes(search.toLowerCase())) {
+      return false;
+    }
 
     return true;
+  });
+
+  console.log("📊 Members screen render:", {
+    total: members.length,
+    filtered: filteredMembers.length,
+    activeFilter,
   });
 
   if (loading) {
@@ -131,11 +186,24 @@ export default function MembersScreen() {
           data={filteredMembers}
           keyExtractor={(item) => item._id}
           contentContainerStyle={{ paddingBottom: 120 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#fff"
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>
+                {members.length === 0
+                  ? "No members yet. Add one to get started!"
+                  : "No members match your filters"}
+              </Text>
+            </View>
+          }
           renderItem={({ item }) => {
-            const displayStatus =
-              item.status === "Active" && isExpiringSoon(item.expiry)
-                ? "Expiring Soon"
-                : item.status;
+            const displayStatus = getMemberStatus(item);
 
             return (
               <View style={styles.memberRow}>
@@ -299,5 +367,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: 300,
+  },
+
+  emptyText: {
+    color: "#cfcfcf",
+    fontSize: 16,
+    fontFamily: "Inter-Regular",
+    textAlign: "center",
   },
 });
