@@ -2,14 +2,12 @@ import { BG_SECONDARY, BORDER_PRIMARY, PRIMARY } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef } from "react";
 import {
-    Animated,
-    Dimensions,
-    StyleSheet,
-    Text,
-    View,
+  Animated,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
-
-const { width } = Dimensions.get("window");
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ToastProps {
   visible: boolean;
@@ -27,6 +25,7 @@ export const Toast = ({
   onHide,
 }: ToastProps) => {
   const slideAnim = useRef(new Animated.Value(-100)).current;
+  const insets = useSafeAreaInsets(); // 👈 SAFE AREA
 
   useEffect(() => {
     if (visible) {
@@ -81,6 +80,7 @@ export const Toast = ({
       style={[
         styles.container,
         {
+          top: insets.top + 8, // ✅ SAFE AREA OFFSET
           transform: [{ translateY: slideAnim }],
         },
       ]}
@@ -93,18 +93,19 @@ export const Toast = ({
   );
 };
 
+const TOAST_BG = "#0f172a";
+
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    top: 0,
     left: 0,
     right: 0,
     zIndex: 9999,
-    padding: 16,
+    paddingHorizontal: 16,
   },
 
   toast: {
-    backgroundColor: BG_SECONDARY,
+    backgroundColor: TOAST_BG,
     borderRadius: 8,
     borderWidth: 1,
     borderLeftWidth: 4,
@@ -114,7 +115,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginHorizontal: 16,
   },
 
   message: {

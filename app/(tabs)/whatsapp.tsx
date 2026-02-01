@@ -17,6 +17,10 @@ import {
     View,
 } from "react-native";
 
+import { useFocusEffect } from "expo-router";
+import { useCallback } from "react";
+
+
 export default function WhatsAppScreen() {
   const { colors } = useThemeContext();
   const [members, setMembers] = useState<any[]>([]);
@@ -40,60 +44,85 @@ export default function WhatsAppScreen() {
     { id: 10, label: "Feedback Request", text: "We'd love to hear from you! Share your feedback and help us improve." },
   ];
 
-  useEffect(() => {
-    const fetchMembers = async () => {
-      try {
-        setLoading(true);
-        const data = await getMembers();
-        setMembers(data || []);
-      } catch (err) {
-        console.log("FETCH MEMBERS ERROR:", err);
-        setMembers([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+const fetchMembers = async () => {
+  try {
+    setLoading(true);
+    const data = await getMembers();
+    setMembers(data || []);
+  } catch (err) {
+    console.log("FETCH MEMBERS ERROR:", err);
+    setMembers([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
+useFocusEffect(
+  useCallback(() => {
     fetchMembers();
-  }, []);
+  }, [])
+);
 
-  const filteredMembers = (members || []).filter((m) => {
-    // Filter by tab status
-    let statusMatch = true;
-    if (activeTab !== "All") {
-      let computedStatus = m.status;
-      
-      if (m.status === "Active" && isExpiringSoon(m.expiry)) {
-        computedStatus = "Expiring Soon";
-      }
-      
-      statusMatch = computedStatus === activeTab;
+const getMemberStatus = (member: any) => {
+  if (!member.expiry) return "Active";
+
+  const today = new Date();
+  const expiry = new Date(member.expiry);
+
+  if (isNaN(expiry.getTime())) return "Active";
+
+  if (expiry < today) return "Expired";
+
+  if (isExpiringSoon(member.expiry)) return "Expiring Soon";
+
+  return "Active";
+};
+
+const isExpiringSoon = (expiry?: string) => {
+  if (!expiry) return false;
+
+  const today = new Date();
+  const exp = new Date(expiry);
+
+  if (isNaN(exp.getTime())) return false;
+
+  const diffDays =
+    (exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+
+  return diffDays > 0 && diffDays <= 7;
+};
+
+
+
+
+const filteredMembers = (members || [])
+  .filter((m) => {
+    const status = getMemberStatus(m);
+
+    // TAB FILTER
+    if (activeTab !== "All" && status !== activeTab) {
+      return false;
     }
 
-    // Filter by search
-    let searchMatch = true;
+    // SEARCH FILTER
     if (search) {
-      searchMatch =
-        m.name.toLowerCase().includes(search.toLowerCase()) ||
-        m.phone.includes(search);
+      return (
+        m.name?.toLowerCase().includes(search.toLowerCase()) ||
+        m.phone?.includes(search)
+      );
     }
 
-    return statusMatch && searchMatch;
-  }).sort((a, b) => {
-    // Sort expired members to top
-    const aIsExpired = a.status === "Expired" ? 0 : 1;
-    const bIsExpired = b.status === "Expired" ? 0 : 1;
-    return aIsExpired - bIsExpired;
+    return true;
+  })
+  .sort((a, b) => {
+    const order = { "Expired": 0, "Expiring Soon": 1, "Active": 2 };
+
+    return (
+      order[getMemberStatus(a)] - order[getMemberStatus(b)]
+    );
   });
 
-  const isExpiringSoon = (expiry: string) => {
-    const today = new Date();
-    const exp = new Date(expiry);
-    const diffDays =
-      (exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
 
-    return diffDays <= 7 && diffDays >= 0;
-  };
 
   const formatPhoneNumber = (phone: string): string => {
     // Remove all non-digit characters
@@ -251,7 +280,7 @@ export default function WhatsAppScreen() {
           <FlatList
             data={filteredMembers}
             renderItem={renderMember}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item._id}
             scrollEnabled={false}
             contentContainerStyle={styles.membersList}
           />

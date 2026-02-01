@@ -14,6 +14,8 @@ import {
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "expo-router";
+import { useCallback } from "react";
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -22,37 +24,55 @@ export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+useFocusEffect(
+  useCallback(() => {
     const fetchNotifications = async () => {
       try {
         setLoading(true);
         const data = await getMembers();
         const today = new Date();
 
-        // Create notifications for expiring members
-        const expiringNotifications = (data || [])
-          .filter((member: any) => {
-            const expiryDate = new Date(member.expiry);
-            const daysLeft = (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-            return daysLeft <= 7 && daysLeft > 0;
-          })
-          .map((member: any) => {
-            const expiryDate = new Date(member.expiry);
-            const daysLeft = Math.ceil(
-              (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-            );
-            return {
-              id: `expiry-${member.id}`,
+        const notificationsList: any[] = [];
+
+        (data || []).forEach((member: any) => {
+          if (!member.expiry) return;
+
+          const expiryDate = new Date(member.expiry);
+          const diffDays = Math.ceil(
+            (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+          );
+
+          // 🔴 EXPIRED
+          if (diffDays <= 0) {
+            notificationsList.push({
+              id: `expired-${member._id}`,
+              type: "expired",
+              title: "Membership Expired",
+              message: `${member.name}'s membership has expired`,
+              time: new Date(),
+              member,
+              daysLeft: 0,
+            });
+          }
+
+          // 🟡 EXPIRING SOON (1–7 days)
+          else if (diffDays <= 7) {
+            notificationsList.push({
+              id: `expiry-${member._id}`,
               type: "expiry",
               title: "Membership Expiring Soon",
-              message: `${member.name}'s membership expires in ${daysLeft} day${daysLeft > 1 ? "s" : ""}`,
+              message: `${member.name}'s membership expires in ${diffDays} day${diffDays > 1 ? "s" : ""}`,
               time: new Date(),
-              member: member,
-              daysLeft: daysLeft,
-            };
-          });
+              member,
+              daysLeft: diffDays,
+            });
+          }
+        });
 
-        setNotifications(expiringNotifications);
+        // Optional: sort by urgency
+        notificationsList.sort((a, b) => a.daysLeft - b.daysLeft);
+
+        setNotifications(notificationsList);
       } catch (err) {
         console.log("FETCH NOTIFICATIONS ERROR:", err);
       } finally {
@@ -61,25 +81,32 @@ export default function NotificationsScreen() {
     };
 
     fetchNotifications();
-  }, []);
+  }, [])
+);
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case "expiry":
-        return "warning";
-      default:
-        return "notifications";
-    }
-  };
 
-  const getNotificationColor = (type: string) => {
-    switch (type) {
-      case "expiry":
-        return "#fb7185";
-      default:
-        return PRIMARY;
-    }
-  };
+ const getNotificationIcon = (type: string) => {
+  switch (type) {
+    case "expired":
+      return "close-circle";
+    case "expiry":
+      return "warning";
+    default:
+      return "notifications";
+  }
+};
+
+const getNotificationColor = (type: string) => {
+  switch (type) {
+    case "expired":
+      return "#ef4444"; // red
+    case "expiry":
+      return "#f59e0b"; // orange
+    default:
+      return PRIMARY;
+  }
+};
+
 
   const formatTime = (date: Date) => {
     const now = new Date();

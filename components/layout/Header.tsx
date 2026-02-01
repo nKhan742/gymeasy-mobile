@@ -56,7 +56,18 @@ export default function Header({ title }: HeaderProps) {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: Math.max(insets.top, 16) }]}>
+    <View
+  style={[
+    styles.container,
+    {
+      paddingTop: Math.max(insets.top, 16) + 10,
+      paddingBottom: 16,
+       borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: "rgba(255,255,255,0.1)",
+    },
+  ]}
+>
+
       {/* Title */}
       <Text style={styles.title}>{displayTitle}</Text>
 

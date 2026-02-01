@@ -34,12 +34,14 @@ export const getMembers = async () => {
 };
 
 export const addMember = async (memberData: {
+  gymId: string;
   name: string;
   phone: string;
   address?: string;
-  plan?: string;
-  amount?: string;
-  feesPaid: boolean;
+  plan: string;
+  amount: number;
+   feesPaid: boolean;
+  joiningDate: string;
 }) => {
   const res = await api.post("/members", memberData);
   return res.data.data || res.data;

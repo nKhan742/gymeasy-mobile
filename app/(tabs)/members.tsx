@@ -208,11 +208,17 @@ export default function MembersScreen() {
             return (
               <View style={styles.memberRow}>
                 <View>
-                  <Text style={styles.memberName}>{item.name}</Text>
-                  <Text style={styles.memberPhone}>
-                    +91 {item.phone}
-                  </Text>
-                </View>
+                <Text style={styles.memberName}>{item.name}</Text>
+
+                <Text style={styles.memberPhone}>
+                  +91 {item.phone}
+                </Text>
+
+                <Text style={styles.memberMeta}>
+                  {item.plan || "Standard"} • ₹{item.amount}
+                </Text>
+              </View>
+
 
                 <View style={styles.rightActions}>
                   <View
@@ -335,6 +341,13 @@ const styles = StyleSheet.create({
     color: "#cfcfcf",
     marginTop: 2,
   },
+
+  memberMeta: {
+  fontSize: 12,
+  color: "#a8a8a8",
+  marginTop: 3,
+  fontFamily: "Inter-Regular",
+},
 
   rightActions: {
     flexDirection: "row",
