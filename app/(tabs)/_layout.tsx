@@ -10,22 +10,28 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeContext } from "../../contexts/ThemeContext";
+import GlassTabBarBackground from "@/components/ui/GlassTabBarBackground";
+import GlassFab from "@/components/ui/GlassFab";
 
 
 function TabButton({ icon, label, focused, onPress }: any) {
   const { colors } = useThemeContext();
+
   return (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.85}
       style={styles.tabItem}
     >
-      <Ionicons
-        name={icon}
-        size={22}
-        color={focused ? colors.primary : "#b7b9d6"}
-        style={focused && styles.activeIcon}
-      />
+      {/* ICON WRAPPER FOR GLOW */}
+      <View style={focused && styles.iconGlow}>
+        <Ionicons
+          name={icon}
+          size={22}
+          color={focused ? colors.primary : "#b7b9d6"}
+        />
+      </View>
+
       <Text
         style={[
           styles.tabLabel,
@@ -37,6 +43,7 @@ function TabButton({ icon, label, focused, onPress }: any) {
     </TouchableOpacity>
   );
 }
+
 
 export default function TabLayout() {
   const router = useRouter();
@@ -53,17 +60,7 @@ export default function TabLayout() {
           { bottom: insets.bottom + 10 },
         ]}
       >
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => router.push("/add")}
-        >
-          <LinearGradient
-            colors={colors.gradient}
-            style={styles.fab}
-          >
-            <Ionicons name="add" size={25} color="#fff" />
-          </LinearGradient>
-        </TouchableOpacity>
+         <GlassFab onPress={() => router.push("/add")} />
       </View>
 
 
@@ -74,13 +71,7 @@ export default function TabLayout() {
             styles.tabBar,
             { paddingBottom: insets.bottom },
           ],
-          tabBarBackground: () => (
-            <BlurView
-              intensity={55}
-              tint="dark"
-              style={StyleSheet.absoluteFill}
-            />
-          ),
+          tabBarBackground: () => <GlassTabBarBackground />,
         }}
       >
         <Tabs.Screen
@@ -145,29 +136,13 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: 72,
+    // backgroundColor: "#231432",
     backgroundColor: "transparent",
     borderTopWidth: 0,
     elevation: 0,
     overflow: "visible", // 🔥 CRITICAL
   },
 
-  tabItem: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 8,
-  },
-
-  tabLabel: {
-    fontSize: 11,
-    marginTop: 4,
-    color: "#b7b9d6",
-    fontFamily: "Inter-Medium",
-  },
-
-  activeLabel: {
-    color: "#42E695",
-  },
 
   activeIcon: {
     textShadowColor: "#42E695",
@@ -193,4 +168,34 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 14,
   },
+  tabItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 8,
+  },
+
+  /* ICON GLOW */
+  iconGlow: {
+    shadowColor: "#42E695",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
+
+    // Android glow
+    elevation: 10,
+  },
+
+  tabLabel: {
+    fontSize: 11,
+    marginTop: 4,
+    color: "#b7b9d6",
+    fontFamily: "Inter-Medium",
+  },
+
+  activeLabel: {
+    color: "#42E695",
+  },
 });
+
+

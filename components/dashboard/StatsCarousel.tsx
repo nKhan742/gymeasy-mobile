@@ -29,17 +29,7 @@ export default function StatsCarousel({
           label="Total Members"
           value={String(totalMembers)}
           sub="All registered"
-          gradient={["#8E2DE2", "#4A00E0"]}
         />
-
-        {/* ACTIVE MEMBERS */}
-        {/* <StatCard
-          icon="checkmark-circle-outline"
-          label="Active Members"
-          value={String(activeMembers)}
-          sub="Currently training"
-          gradient={["#11998e", "#38ef7d"]}
-        /> */}
 
         {/* EXPIRING MEMBERS */}
         <StatCard
@@ -47,7 +37,6 @@ export default function StatsCarousel({
           label="Expiring Soon"
           value={String(expiringCount)}
           sub="Needs renewal"
-          gradient={["#ff5f6d", "#ffc371"]}
         />
 
         {/* MONTHLY REVENUE */}
@@ -56,7 +45,6 @@ export default function StatsCarousel({
           label="This Month"
           value={`₹${monthlyRevenue.toLocaleString("en-IN")}`}
           sub="Monthly revenue"
-          gradient={["#f7971e", "#ffd200"]}
         />
 
         {/* TOTAL REVENUE */}
@@ -65,7 +53,6 @@ export default function StatsCarousel({
           label="Total Revenue"
           value={`₹${totalRevenue.toLocaleString("en-IN")}`}
           sub="Overall collection"
-          gradient={["#36d1dc", "#5b86e5"]}
         />
       </ScrollView>
     </View>
@@ -74,7 +61,7 @@ export default function StatsCarousel({
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginTop: 6,
+    marginTop: 20,
     marginBottom: 22,
   },
 

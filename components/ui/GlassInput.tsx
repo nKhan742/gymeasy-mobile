@@ -13,8 +13,8 @@ export default function GlassInput({
       <BlurView intensity={35} tint="dark" style={styles.blur}>
         <LinearGradient
           colors={[
-            "rgba(255,255,255,0.18)",
-            "rgba(255,255,255,0.06)",
+            "rgba(132, 123, 164, 0.2)",
+            "rgba(36, 22, 53, 0.17)",
           ]}
           style={styles.inner}
         >
@@ -30,8 +30,8 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: 16,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.25)",
+    borderWidth: 2,
+    borderColor: "rgba(132,123,164,0.25)",
     marginBottom: 14,
   },
 

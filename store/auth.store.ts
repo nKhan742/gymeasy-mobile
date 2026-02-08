@@ -7,7 +7,13 @@ import { AuthState } from '../types/auth.types';
 interface AuthStore extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   googleLogin: (idToken: string) => Promise<void>;
-  register: (email: string, password: string, name: string, gymName?: string) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    name: string,
+    phone: string,
+    gymName?: string
+  ) => Promise<void>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
   setLoading: (loading: boolean) => void;
@@ -20,10 +26,10 @@ export const useAuthStore = create<AuthStore>()(
       user: null,
       token: null,
       isAuthenticated: false,
-      isLoading: true, // Start with loading true to prevent premature redirects
-      isHydrated: false, // Add hydration tracking
+      isLoading: true,
+      isHydrated: false,
 
-      login: async (email: string, password: string) => {
+      login: async (email, password) => {
         try {
           set({ isLoading: true });
           const response = await AuthService.login({ email, password });
@@ -39,7 +45,7 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      googleLogin: async (idToken: string) => {
+      googleLogin: async (idToken) => {
         try {
           set({ isLoading: true });
           const response = await AuthService.googleLogin(idToken);
@@ -55,10 +61,27 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      register: async (email: string, password: string, name: string, gymName?: string) => {
+      // ✅ FIXED REGISTER
+      register: async (email, password, name, phone, gymName) => {
         try {
           set({ isLoading: true });
-          const response = await AuthService.register({ email, password, name, gymName });
+
+          console.log('REGISTER PAYLOAD →', {
+            email,
+            password,
+            name,
+            phone,
+            gymName,
+          });
+
+          const response = await AuthService.register({
+            email,
+            password,
+            name,
+            phone,        // ✅ SENT
+            gymName,
+          });
+
           set({
             user: response.user,
             token: response.token,
@@ -74,8 +97,6 @@ export const useAuthStore = create<AuthStore>()(
       logout: async () => {
         try {
           await AuthService.logout();
-        } catch (error) {
-          console.error('Logout error:', error);
         } finally {
           set({
             user: null,
@@ -93,7 +114,6 @@ export const useAuthStore = create<AuthStore>()(
           if (newToken) {
             set({ token: newToken, isLoading: false });
           } else {
-            // If refresh failed, logout
             await get().logout();
           }
         } catch (error) {
@@ -102,7 +122,7 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      setLoading: (loading: boolean) => {
+      setLoading: (loading) => {
         set({ isLoading: loading });
       },
     }),

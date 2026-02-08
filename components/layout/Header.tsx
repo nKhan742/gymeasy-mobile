@@ -1,6 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React from "react";
+import {
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ERROR } from "../../constants/colors";
 import { useThemeContext } from "../../contexts/ThemeContext";
@@ -12,81 +20,91 @@ interface HeaderProps {
 
 export default function Header({ title }: HeaderProps) {
   const { user, logout } = useAuth();
-  const { colors } = useThemeContext();
+  const { colors } = useThemeContext(); // kept for future use
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const displayTitle = title || user?.gymName || user?.name || "GymEasy";
 
   const handleLogout = () => {
-    console.log("Logout button pressed");
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to log out?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
+    Alert.alert("Logout", "Are you sure you want to log out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await logout();
+            setTimeout(() => {
+              router.replace("/(auth)/login");
+            }, 100);
+          } catch {
+            Alert.alert("Error", "Failed to logout. Please try again.");
+          }
         },
-        {
-          text: "Logout",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await logout();
-              setTimeout(() => {
-                router.replace("/(auth)/login");
-              }, 100);
-            } catch (error) {
-              console.error("Logout error:", error);
-              Alert.alert("Error", "Failed to logout. Please try again.");
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleSettings = () => {
-    router.push("/settings");
-  };
-
-  const handleNotifications = () => {
-    router.push("/notifications");
+      },
+    ]);
   };
 
   return (
-    <View
-  style={[
-    styles.container,
-    {
-      paddingTop: Math.max(insets.top, 16) + 10,
-      paddingBottom: 16,
-       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: "rgba(255,255,255,0.1)",
-    },
-  ]}
->
+    <>
+      {/* HEADER */}
+      <View
+        style={[
+          styles.container,
+          {
+            paddingTop: Math.max(insets.top, 16) + 10,
+            paddingBottom: 14,
+          },
+        ]}
+      >
+        {/* TITLE */}
+        <Text style={styles.title} numberOfLines={1}>
+          {displayTitle}
+        </Text>
 
-      {/* Title */}
-      <Text style={styles.title}>{displayTitle}</Text>
+        {/* ICONS */}
+        <View style={styles.rightIcons}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => router.push("/notifications")}
+          >
+            <Ionicons
+              name="notifications-outline"
+              size={24}
+              color="#FFFFFF"
+            />
+            <View style={styles.dot} />
+          </TouchableOpacity>
 
-      {/* Right Icons */}
-      <View style={styles.rightIcons}>
-        <TouchableOpacity style={styles.iconButton} onPress={handleNotifications}>
-          <Ionicons name="notifications-outline" size={24} color={colors.primary} />
-          <View style={[styles.dot, { backgroundColor: ERROR }]} />
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => router.push("/settings")}
+          >
+            <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.iconButton} onPress={handleSettings}>
-          <Ionicons name="settings-outline" size={24} color={colors.primary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color={colors.primary} />
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+
+      {/* GLOWING DIVIDER */}
+      <LinearGradient
+        colors={[
+          "transparent",
+          "rgba(255,255,255,0.35)",
+          "transparent",
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.divider}
+      />
+    </>
   );
 }
 
@@ -95,12 +113,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 22,
     paddingHorizontal: 16,
+    marginBottom: 8,
   },
 
   title: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontSize: 20,
     fontFamily: "Inter-Bold",
     flex: 1,
@@ -113,7 +131,7 @@ const styles = StyleSheet.create({
 
   iconButton: {
     position: "relative",
-    marginLeft: 16,
+    marginLeft: 18,
   },
 
   dot: {
@@ -124,5 +142,11 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: ERROR,
+  },
+
+  divider: {
+    height: 1.5,
+    marginHorizontal: 16,
+    opacity: 1,
   },
 });

@@ -1,120 +1,162 @@
 import { Toast } from "@/components/Toast";
+import GlassCard from "@/components/ui/GlassCard";
 import {
-  BG_SECONDARY,
-  BORDER_PRIMARY,
   TEXT_PRIMARY,
   TEXT_SECONDARY,
 } from "@/constants/colors";
 import { getMembers } from "@/services/member.service";
-import { Ionicons } from "@expo/vector-icons";
+import AuthService from "@/services/auth.service";
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
+  Alert,
 } from "react-native";
-import Header from "../../components/layout/Header";
-import ScreenWrapper from "../../components/layout/ScreenWrapper";
-import StatsCarousel from "../../components/dashboard/StatsCarousel";
+import Header from "@/components/layout/Header";
+import ScreenWrapper from "@/components/layout/ScreenWrapper";
+import StatsCarousel from "@/components/dashboard/StatsCarousel";
+import { Ionicons } from "@expo/vector-icons";
+import * as Linking from "expo-linking";
 
 export default function DashboardScreen() {
+  const router = useRouter();
+
+  const [gymName, setGymName] = useState("");
   const [members, setMembers] = useState<any[]>([]);
   const [expiringMembers, setExpiringMembers] = useState<any[]>([]);
   const [recentMembers, setRecentMembers] = useState<any[]>([]);
-  const [activeCount, setActiveCount] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
-
 
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-useEffect(() => {
-  const fetchMembers = async () => {
+  /* ================= WHATSAPP (SAME AS WhatsAppScreen) ================= */
+
+  const formatPhone = (phone: string) => {
+    let cleaned = phone.replace(/\D/g, "");
+    if (!cleaned.startsWith("91") && cleaned.length === 10) {
+      cleaned = "91" + cleaned;
+    }
+    return cleaned;
+  };
+
+  const openWhatsApp = async (phone: string, message: string) => {
     try {
-      const data = await getMembers();
-      const allMembers = data || [];
-      setMembers(allMembers);
+      if (!phone) return;
 
-      const today = new Date();
+      const formatted = formatPhone(phone);
+      const encoded = encodeURIComponent(message);
 
-      /* EXPIRING MEMBERS (≤ 7 days) */
-      const expiring = allMembers.filter((m: any) => {
-        const expiry = new Date(m.expiry);
-        const daysLeft =
-          (expiry.getTime() - today.getTime()) /
-          (1000 * 60 * 60 * 24);
-        return daysLeft <= 7 && daysLeft > 0;
-      });
-      setExpiringMembers(expiring);
+      const appUrl = `whatsapp://send?phone=${formatted}&text=${encoded}`;
+      const webUrl = `https://wa.me/${formatted}?text=${encoded}`;
 
-      if (expiring.length > 0) {
-        setToastMessage(
-          `${expiring.length} member${
-            expiring.length > 1 ? "s" : ""
-          } expiring soon`
-        );
-        setShowToast(true);
-      }
-
-      /* ACTIVE MEMBERS */
-      const active = allMembers.filter(
-        (m: any) => m.status === "active"
-      );
-      setActiveCount(active.length);
-
-      /* TOTAL REVENUE */
-      const revenue = allMembers.reduce(
-        (sum: number, m: any) => sum + (m.amount || 0),
-        0
-      );
-      setTotalRevenue(revenue);
-
-      /* MONTHLY REVENUE */
-      const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
-
-      const monthly = allMembers.reduce((sum: number, m: any) => {
-        if (!m.amount || !m.joiningDate) return sum;
-
-        const paidDate = new Date(m.joiningDate);
-
-        if (
-          paidDate.getMonth() === currentMonth &&
-          paidDate.getFullYear() === currentYear
-        ) {
-          return sum + m.amount;
-        }
-
-        return sum;
-      }, 0);
-
-      setMonthlyRevenue(monthly);
-
-      /* RECENTLY ADDED MEMBERS (last 7 days) */
-      const recent = allMembers.filter((m: any) => {
-        const joinDate = new Date(m.joiningDate);
-        const diff =
-          (today.getTime() - joinDate.getTime()) /
-          (1000 * 60 * 60 * 24);
-        return diff <= 7;
-      });
-      setRecentMembers(recent);
-    } catch (err) {
-      console.log("FETCH MEMBERS ERROR:", err);
+      const canOpen = await Linking.canOpenURL(appUrl);
+      await Linking.openURL(canOpen ? appUrl : webUrl);
+    } catch {
+      Alert.alert("Error", "Unable to open WhatsApp");
     }
   };
 
-  fetchMembers();
-}, []);
+  const renewMessage = (name: string, expiry: string) =>
+    `Hi ${name} 👋\n\nYour gym membership is expiring on ${expiry}.\nPlease renew your membership as soon as possible to avoid interruption 💪\n\n– ${gymName}`;
 
+  const welcomeMessage = (name: string) =>
+    `Welcome to ${gymName}, ${name}! 💪\n\nWe’re excited to have you with us.\nLet us know if you need any help getting started.\n\n– ${gymName}`;
+
+  /* ================= LOAD DASHBOARD ================= */
+
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        const me = await AuthService.getMe();
+        setGymName(
+          me?.gymName ||
+          me?.gym?.gymName ||
+          me?.user?.gym?.gymName ||
+          ""
+        );
+
+        const allMembers = (await getMembers()) || [];
+        setMembers(allMembers);
+
+        const today = new Date();
+
+        /* EXPIRING ≤ 7 DAYS */
+        const expiring = allMembers.filter((m: any) => {
+          const expiry = new Date(m.expiryDate ?? m.expiry);
+          const diff =
+            (expiry.getTime() - today.getTime()) /
+            (1000 * 60 * 60 * 24);
+          return diff > 0 && diff <= 7;
+        });
+
+        setExpiringMembers(expiring);
+
+        if (expiring.length > 0) {
+          setToastMessage(
+            `${expiring.length} member${expiring.length > 1 ? "s" : ""} expiring soon`
+          );
+          setShowToast(true);
+        }
+
+        /* TOTAL REVENUE */
+        setTotalRevenue(
+          allMembers.reduce(
+            (sum: number, m: any) => sum + (m.amount || 0),
+            0
+          )
+        );
+
+        /* MONTHLY REVENUE */
+        const now = new Date();
+        const month = now.getMonth();
+        const year = now.getFullYear();
+
+        setMonthlyRevenue(
+          allMembers.reduce((sum: number, m: any) => {
+            if (!m.amount || !m.joiningDate) return sum;
+            const d = new Date(m.joiningDate);
+            return d.getMonth() === month && d.getFullYear() === year
+              ? sum + m.amount
+              : sum;
+          }, 0)
+        );
+
+        /* RECENT ≤ 7 DAYS */
+        setRecentMembers(
+          allMembers.filter((m: any) => {
+            const joined = new Date(m.joiningDate);
+            const diff =
+              (today.getTime() - joined.getTime()) /
+              (1000 * 60 * 60 * 24);
+            return diff <= 7;
+          })
+        );
+      } catch (e) {
+        console.log("DASHBOARD ERROR:", e);
+      }
+    };
+
+    loadDashboard();
+  }, []);
+
+  const goToMember = (memberId: string) => {
+    router.push({
+      pathname: "/members/member-profile",
+      params: { memberId },
+    });
+  };
+
+  /* ================= UI ================= */
 
   return (
     <ScreenWrapper>
-
       <Toast
         visible={showToast}
         message={toastMessage}
@@ -122,63 +164,74 @@ useEffect(() => {
         duration={4000}
         onHide={() => setShowToast(false)}
       />
-      <SafeAreaView style={styles.safeArea}>
-        <Header />
+
+      <SafeAreaView style={{ flex: 1 }}>
+        <Header title={gymName || "Dashboard"} />
+
         <ScrollView
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
         >
-          {/* NOTIFICATION */}
-          {expiringMembers.length > 0 && (
-            <View style={styles.notificationBanner}>
-              <View style={styles.notificationIcon}>
-                <Ionicons name="warning" size={20} color="#fff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.notificationTitle}>
-                  Memberships Expiring Soon
-                </Text>
-                <Text style={styles.notificationText}>
-                  {expiringMembers.length} member(s) expiring within 7 days
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* STATS */}
           <StatsCarousel
             totalMembers={members.length}
-            // activeMembers={activeCount}
             totalRevenue={totalRevenue}
             expiringCount={expiringMembers.length}
             monthlyRevenue={monthlyRevenue}
           />
 
-          {/* EXPIRING MEMBERS LIST */}
+          {/* EXPIRING MEMBERS */}
           {expiringMembers.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
                 Members Expiring Soon
               </Text>
 
-              {expiringMembers.slice(0, 3).map((member) => (
-                <View key={member.id} style={styles.memberItem}>
-                  <View style={styles.memberInfo}>
-                    <Text style={styles.memberName}>
-                      {member.name}
-                    </Text>
-                    <Text style={styles.memberPlan}>
-                      Expires on{" "}
-                      {new Date(member.expiry).toDateString()}
-                    </Text>
-                  </View>
-                </View>
+              {expiringMembers.slice(0, 3).map((m) => (
+                <TouchableOpacity
+                  key={m._id}
+                  onPress={() => goToMember(m._id)}
+                >
+                  <GlassCard style={styles.memberCard}>
+                    <View style={styles.memberRow}>
+                      <View>
+                        <Text style={styles.memberName}>{m.name}</Text>
+                        <Text style={styles.memberMeta}>
+                          Expires on{" "}
+                          {new Date(m.expiryDate ?? m.expiry).toDateString()}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.whatsappGlassBtn}
+                        onPress={() =>
+                          openWhatsApp(
+                            m.phone,
+                            renewMessage(
+                              m.name,
+                              new Date(m.expiryDate ?? m.expiry).toDateString()
+                            )
+                          )
+                        }
+                      >
+                        <Ionicons
+                          name="logo-whatsapp"
+                          size={18}
+                          color="#25D366"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </GlassCard>
+                </TouchableOpacity>
               ))}
 
               {expiringMembers.length > 3 && (
-                <Text style={styles.viewMore}>
-                  +{expiringMembers.length - 3} more
-                </Text>
+                <TouchableOpacity
+                  onPress={() => router.push("/(tabs)/members")}
+                >
+                  <Text style={styles.viewMore}>
+                    +{expiringMembers.length - 3} more
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
           )}
@@ -190,26 +243,49 @@ useEffect(() => {
                 Recently Added Members
               </Text>
 
-              {recentMembers.slice(0, 3).map((member) => (
-                <View key={member.id} style={styles.memberItem}>
-                  <View style={styles.memberInfo}>
-                    <Text style={styles.memberName}>
-                      {member.name}
-                    </Text>
-                    <Text style={styles.memberPlan}>
-                      Joined on{" "}
-                      {new Date(
-                        member.joiningDate
-                      ).toDateString()}
-                    </Text>
-                  </View>
-                </View>
+              {recentMembers.slice(0, 3).map((m) => (
+                <TouchableOpacity
+                  key={m._id}
+                  onPress={() => goToMember(m._id)}
+                >
+                  <GlassCard style={styles.memberCard}>
+                    <View style={styles.memberRow}>
+                      <View>
+                        <Text style={styles.memberName}>{m.name}</Text>
+                        <Text style={styles.memberMeta}>
+                          Joined on{" "}
+                          {new Date(m.joiningDate).toDateString()}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.whatsappGlassBtn}
+                        onPress={() =>
+                          openWhatsApp(
+                            m.phone,
+                            welcomeMessage(m.name)
+                          )
+                        }
+                      >
+                        <Ionicons
+                          name="logo-whatsapp"
+                          size={18}
+                          color="#25D366"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </GlassCard>
+                </TouchableOpacity>
               ))}
 
               {recentMembers.length > 3 && (
-                <Text style={styles.viewMore}>
-                  +{recentMembers.length - 3} more
-                </Text>
+                <TouchableOpacity
+                  onPress={() => router.push("/(tabs)/members")}
+                >
+                  <Text style={styles.viewMore}>
+                    +{recentMembers.length - 3} more
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
           )}
@@ -219,50 +295,17 @@ useEffect(() => {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
+/* ================= STYLES ================= */
 
+const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingTop: 20,
     paddingBottom: 120,
   },
 
-  notificationBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: BG_SECONDARY,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(251,113,133,0.3)",
-    padding: 14,
-    marginBottom: 20,
+  section: {
+    marginTop: 28,
   },
-
-  notificationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(251,113,133,0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-
-  notificationTitle: {
-    fontSize: 14,
-    fontFamily: "Inter-SemiBold",
-    color: TEXT_PRIMARY,
-    marginBottom: 4,
-  },
-
-  notificationText: {
-    fontSize: 12,
-    fontFamily: "Inter-Regular",
-    color: TEXT_SECONDARY,
-  },
-
-  section: { marginTop: 28 },
 
   sectionTitle: {
     fontSize: 16,
@@ -271,34 +314,44 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
 
-  memberItem: {
-    backgroundColor: BG_SECONDARY,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: BORDER_PRIMARY,
-    padding: 12,
+  memberCard: {
     marginBottom: 10,
   },
 
-  memberInfo: { flex: 1 },
-
-  memberName: {
-    fontSize: 13,
-    fontFamily: "Inter-SemiBold",
-    color: TEXT_PRIMARY,
-    marginBottom: 3,
+  memberRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
 
-  memberPlan: {
-    fontSize: 11,
+  memberName: {
+    fontSize: 14,
+    fontFamily: "Inter-SemiBold",
+    color: TEXT_PRIMARY,
+  },
+
+  memberMeta: {
+    fontSize: 12,
     fontFamily: "Inter-Regular",
     color: TEXT_SECONDARY,
+    marginTop: 4,
+  },
+
+  whatsappGlassBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   viewMore: {
+    marginTop: 8,
     fontSize: 12,
     fontFamily: "Inter-Medium",
     color: TEXT_SECONDARY,
-    marginTop: 8,
   },
 });

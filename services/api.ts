@@ -39,35 +39,45 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (!error.config) {
+      console.log("❌ Network-level Axios error");
+      return Promise.reject(error);
+    }
+
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        // Try to refresh token
-        const refreshToken = await AsyncStorage.getItem('refresh_token');
-        if (refreshToken) {
-          const refreshResponse = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-            refreshToken,
-          });
+        const refreshToken = await AsyncStorage.getItem("refresh_token");
 
-          const newToken = refreshResponse.data.token;
-          await AsyncStorage.setItem('auth_token', newToken);
+        if (!refreshToken) throw new Error("No refresh token");
 
-          // Retry the original request with new token
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          return api(originalRequest);
-        }
-      } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError);
-        // Clear auth data if refresh fails
-        await AsyncStorage.multiRemove(['auth_token', 'auth_user', 'refresh_token']);
+        const refreshResponse = await axios.post(
+          `${API_BASE_URL}/auth/refresh`,
+          { refreshToken },
+          { timeout: 30000 }
+        );
+
+        const newToken = refreshResponse.data.token;
+        await AsyncStorage.setItem("auth_token", newToken);
+
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      } catch (err) {
+        await AsyncStorage.multiRemove([
+          "auth_token",
+          "auth_user",
+          "refresh_token",
+        ]);
+        return Promise.reject(err);
       }
     }
 
     return Promise.reject(error);
   }
 );
+
 
 export default api;

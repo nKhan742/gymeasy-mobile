@@ -1,194 +1,248 @@
 import ScreenWrapper from "@/components/layout/ScreenWrapper";
-import { BG_SECONDARY, BORDER_PRIMARY, PRIMARY, TEXT_PRIMARY, TEXT_SECONDARY } from "@/constants/colors";
-import { useThemeContext } from "@/contexts/ThemeContext";
+import GlassCard from "@/components/ui/GlassCard";
+import {
+  PRIMARY,
+  TEXT_PRIMARY,
+  TEXT_SECONDARY,
+} from "@/constants/colors";
 import { getMembers } from "@/services/member.service";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
-import { useCallback } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Swipeable } from "react-native-gesture-handler";
+
+const DISMISSED_KEY = "dismissed_notifications";
 
 export default function NotificationsScreen() {
   const router = useRouter();
-  const { colors } = useThemeContext();
   const insets = useSafeAreaInsets();
+
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [dismissed, setDismissed] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-useFocusEffect(
-  useCallback(() => {
-    const fetchNotifications = async () => {
-      try {
-        setLoading(true);
-        const data = await getMembers();
-        const today = new Date();
+  /* 🔥 ENABLE ANDROID LAYOUT ANIMATION */
+  if (
+    Platform.OS === "android" &&
+    UIManager.setLayoutAnimationEnabledExperimental
+  ) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
 
-        const notificationsList: any[] = [];
+  /* ---------------- LOAD DISMISSED ---------------- */
+  useEffect(() => {
+    AsyncStorage.getItem(DISMISSED_KEY).then((v) => {
+      if (v) setDismissed(JSON.parse(v));
+    });
+  }, []);
 
-        (data || []).forEach((member: any) => {
-          if (!member.expiry) return;
+  const persistDismissed = async (ids: string[]) => {
+    setDismissed(ids);
+    await AsyncStorage.setItem(DISMISSED_KEY, JSON.stringify(ids));
+  };
 
-          const expiryDate = new Date(member.expiry);
-          const diffDays = Math.ceil(
-            (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+  /* ---------------- FETCH ---------------- */
+  useFocusEffect(
+    useCallback(() => {
+      const fetchNotifications = async () => {
+        try {
+          setLoading(true);
+          const members = await getMembers();
+          const today = new Date();
+          const list: any[] = [];
+
+          (members || []).forEach((m: any) => {
+            if (!m.expiry) return;
+
+            const diffDays = Math.ceil(
+              (new Date(m.expiry).getTime() - today.getTime()) /
+                (1000 * 60 * 60 * 24)
+            );
+
+            if (diffDays <= 0) {
+              list.push({
+                id: `expired-${m._id}`,
+                type: "expired",
+                title: "Membership Expired",
+                message: `${m.name}'s membership has expired`,
+                time: new Date(),
+              });
+            } else if (diffDays <= 7) {
+              list.push({
+                id: `expiry-${m._id}`,
+                type: "expiry",
+                title: "Membership Expiring Soon",
+                message: `${m.name}'s membership expires in ${diffDays} day${diffDays > 1 ? "s" : ""}`,
+                time: new Date(),
+              });
+            }
+
+            if (m.createdAt) {
+              const hrs =
+                (today.getTime() - new Date(m.createdAt).getTime()) /
+                (1000 * 60 * 60);
+              if (hrs <= 24) {
+                list.push({
+                  id: `new-${m._id}`,
+                  type: "new",
+                  title: "New Member Added",
+                  message: `${m.name} has joined the gym`,
+                  time: new Date(m.createdAt),
+                });
+              }
+            }
+          });
+
+          setNotifications(
+            list.filter((n) => !dismissed.includes(n.id))
           );
+        } catch (e) {
+          console.log("NOTIFICATION ERROR:", e);
+        } finally {
+          setLoading(false);
+        }
+      };
 
-          // 🔴 EXPIRED
-          if (diffDays <= 0) {
-            notificationsList.push({
-              id: `expired-${member._id}`,
-              type: "expired",
-              title: "Membership Expired",
-              message: `${member.name}'s membership has expired`,
-              time: new Date(),
-              member,
-              daysLeft: 0,
-            });
-          }
+      fetchNotifications();
+    }, [dismissed])
+  );
 
-          // 🟡 EXPIRING SOON (1–7 days)
-          else if (diffDays <= 7) {
-            notificationsList.push({
-              id: `expiry-${member._id}`,
-              type: "expiry",
-              title: "Membership Expiring Soon",
-              message: `${member.name}'s membership expires in ${diffDays} day${diffDays > 1 ? "s" : ""}`,
-              time: new Date(),
-              member,
-              daysLeft: diffDays,
-            });
-          }
-        });
+  /* ---------------- DISMISS ---------------- */
+  const dismiss = async (id: string) => {
+    LayoutAnimation.configureNext(
+      LayoutAnimation.Presets.easeInEaseOut
+    );
+    const updated = [...dismissed, id];
+    await persistDismissed(updated);
+    setNotifications((p) => p.filter((n) => n.id !== id));
+  };
 
-        // Optional: sort by urgency
-        notificationsList.sort((a, b) => a.daysLeft - b.daysLeft);
+  const clearAll = async () => {
+    LayoutAnimation.configureNext(
+      LayoutAnimation.Presets.easeInEaseOut
+    );
+    const ids = notifications.map((n) => n.id);
+    await persistDismissed([...dismissed, ...ids]);
+    setNotifications([]);
+  };
 
-        setNotifications(notificationsList);
-      } catch (err) {
-        console.log("FETCH NOTIFICATIONS ERROR:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  /* ---------------- UI HELPERS ---------------- */
+  const icon = (t: string) =>
+    t === "expired" ? "close-circle" : t === "expiry" ? "warning" : "person-add";
 
-    fetchNotifications();
-  }, [])
-);
+  const color = (t: string) =>
+    t === "expired" ? "#ef4444" : t === "expiry" ? "#f59e0b" : "#22c55e";
 
-
- const getNotificationIcon = (type: string) => {
-  switch (type) {
-    case "expired":
-      return "close-circle";
-    case "expiry":
-      return "warning";
-    default:
-      return "notifications";
-  }
-};
-
-const getNotificationColor = (type: string) => {
-  switch (type) {
-    case "expired":
-      return "#ef4444"; // red
-    case "expiry":
-      return "#f59e0b"; // orange
-    default:
-      return PRIMARY;
-  }
-};
-
-
-  const formatTime = (date: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return "Just now";
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return `${days}d ago`;
+  const timeAgo = (d: Date) => {
+    const m = Math.floor((Date.now() - +new Date(d)) / 60000);
+    if (m < 1) return "Just now";
+    if (m < 60) return `${m}m ago`;
+    return `${Math.floor(m / 60)}h ago`;
   };
 
   return (
     <ScreenWrapper>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={[styles.header, { paddingTop: insets.top, borderBottomColor: colors.primary }]}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.primary} />
+      <SafeAreaView style={{ flex: 1 }}>
+        {/* HEADER */}
+        <View style={[styles.header, { paddingTop: insets.top }]}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={24} color="#fff" />
           </TouchableOpacity>
+
           <Text style={styles.headerTitle}>Notifications</Text>
-          <View style={{ width: 40 }} />
+
+          {notifications.length > 0 ? (
+            <TouchableOpacity onPress={clearAll}>
+              <Text style={styles.clear}>Clear all</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 60 }} />
+          )}
         </View>
 
+        {/* BODY */}
         {loading ? (
-          <View style={styles.emptyContainer}>
-            <Text style={{ color: TEXT_SECONDARY }}>Loading notifications...</Text>
+          <View style={styles.center}>
+            <Text style={{ color: TEXT_SECONDARY }}>Loading…</Text>
           </View>
         ) : notifications.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="notifications-off" size={48} color={TEXT_SECONDARY} />
-            <Text style={styles.emptyText}>No notifications</Text>
-            <Text style={styles.emptySubtext}>All caught up! No pending actions.</Text>
+          <View style={styles.center}>
+            <Ionicons
+              name="notifications-off"
+              size={48}
+              color={TEXT_SECONDARY}
+            />
+            <Text style={styles.empty}>No notifications</Text>
           </View>
         ) : (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContainer}
-          >
-            {notifications.map((notification) => (
-              <TouchableOpacity
-                key={notification.id}
-                style={styles.notificationCard}
-                onPress={() => {
-                  router.push("/(tabs)/members");
-                }}
-              >
-                <View
-                  style={[
-                    styles.iconBox,
-                    { backgroundColor: `${getNotificationColor(notification.type)}33` },
-                  ]}
-                >
-                  <Ionicons
-                    name={getNotificationIcon(notification.type)}
-                    size={20}
-                    color={getNotificationColor(notification.type)}
-                  />
-                </View>
-
-                <View style={styles.contentBox}>
-                  <Text style={styles.notificationTitle}>{notification.title}</Text>
-                  <Text style={styles.notificationMessage}>{notification.message}</Text>
-                  <Text style={styles.notificationTime}>
-                    {formatTime(notification.time)}
-                  </Text>
-                </View>
-
-                <View style={styles.rightBox}>
-                  {notification.type === "expiry" && (
-                    <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-                      <Text style={styles.badgeText}>
-                        {notification.daysLeft}d
-                      </Text>
+          <ScrollView contentContainerStyle={styles.list}>
+            {notifications.map((n) => (
+              <View key={n.id} style={styles.rowWrapper}>
+                <Swipeable
+                  renderRightActions={() => (
+                    <View style={styles.swipeDelete}>
+                      <Ionicons name="trash" size={20} color="#fff" />
                     </View>
                   )}
-                </View>
-              </TouchableOpacity>
+                  onSwipeableOpen={() => dismiss(n.id)}
+                >
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => {
+                      dismiss(n.id);
+                      router.push("/(tabs)/members");
+                    }}
+                  >
+                    <GlassCard>
+  <View style={styles.cardRow}>
+    <View
+      style={[
+        styles.iconBox,
+        { backgroundColor: `${color(n.type)}33` },
+      ]}
+    >
+      <Ionicons
+        name={icon(n.type)}
+        size={20}
+        color={color(n.type)}
+      />
+    </View>
+
+    <View style={styles.cardContent}>
+      <Text style={styles.title}>{n.title}</Text>
+      <Text style={styles.msg}>{n.message}</Text>
+      <Text style={styles.time}>{timeAgo(n.time)}</Text>
+    </View>
+
+    <TouchableOpacity
+      onPress={() => dismiss(n.id)}
+      style={styles.close}
+    >
+      <Ionicons
+        name="close"
+        size={16}
+        color={TEXT_SECONDARY}
+      />
+    </TouchableOpacity>
+  </View>
+</GlassCard>
+
+                  </TouchableOpacity>
+                </Swipeable>
+              </View>
             ))}
           </ScrollView>
         )}
@@ -198,116 +252,91 @@ const getNotificationColor = (type: string) => {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: BORDER_PRIMARY,
+    paddingBottom: 20,
+    paddingTop: 20,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#ffffff33",
   },
-
-  backButton: {
-    padding: 8,
-  },
-
   headerTitle: {
+    color: "#fff",
     fontSize: 18,
     fontFamily: "Inter-SemiBold",
-    color: TEXT_PRIMARY,
   },
-
-  scrollContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    paddingBottom: 80,
+  clear: {
+    color: "#fff",
+    fontSize: 13,
+    fontFamily: "Inter-Medium",
   },
-
-  notificationCard: {
-    flexDirection: "row",
-    backgroundColor: BG_SECONDARY,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: BORDER_PRIMARY,
-    padding: 14,
-    marginBottom: 12,
+  list: {
+    padding: 16,
+    paddingBottom: 24,
+  },
+  rowWrapper: {
+    marginBottom: 14, // ✅ FIXED SPACING
+  },
+  center: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
   },
-
+  empty: {
+    marginTop: 12,
+    color: TEXT_PRIMARY,
+    fontFamily: "Inter-SemiBold",
+  },
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    minHeight: 84,
+  },
   iconBox: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    justifyContent: "center",
+    marginRight: 14,
   },
-
-  contentBox: {
-    flex: 1,
-  },
-
-  notificationTitle: {
+  title: {
+    color: TEXT_PRIMARY,
+    fontFamily: "Inter-SemiBold",
     fontSize: 14,
-    fontFamily: "Inter-SemiBold",
-    color: TEXT_PRIMARY,
-    marginBottom: 4,
   },
-
-  notificationMessage: {
-    fontSize: 12,
-    fontFamily: "Inter-Regular",
+  msg: {
     color: TEXT_SECONDARY,
-    marginBottom: 6,
+    fontSize: 12,
+    marginVertical: 4,
   },
-
-  notificationTime: {
-    fontSize: 11,
-    fontFamily: "Inter-Regular",
+  time: {
     color: `${TEXT_SECONDARY}99`,
-  },
-
-  rightBox: {
-    marginLeft: 12,
-  },
-
-  badge: {
-    backgroundColor: PRIMARY,
-    borderRadius: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-
-  badgeText: {
     fontSize: 11,
-    fontFamily: "Inter-SemiBold",
-    color: "#000",
   },
-
-  emptyContainer: {
-    flex: 1,
+  swipeDelete: {
+    backgroundColor: "#ef4444",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
+    width: 72,
+    borderRadius: 12,
   },
+  cardRow: {
+  flexDirection: "row",
+  alignItems: "center",
+},
 
-  emptyText: {
-    fontSize: 16,
-    fontFamily: "Inter-SemiBold",
-    color: TEXT_PRIMARY,
-    marginTop: 16,
-    marginBottom: 8,
-  },
+cardContent: {
+  flex: 1,
+},
 
-  emptySubtext: {
-    fontSize: 13,
-    fontFamily: "Inter-Regular",
-    color: TEXT_SECONDARY,
-    textAlign: "center",
-  },
+close: {
+  position: "absolute",
+  top: 0,
+  right: 0,
+},
+
 });

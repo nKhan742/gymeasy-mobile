@@ -1,72 +1,62 @@
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { ColorValue, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View, ViewStyle } from "react-native";
 
-export default function PermissionCard({
-  icon,
-  iconBg,
-  title,
-  subtitle,
+export default function GlassCard({
+  children,
+  style,
 }: {
-  icon: React.ReactNode;
-  iconBg: readonly [ColorValue, ColorValue, ...ColorValue[]];
-  title: string;
-  subtitle?: string;
+  children: React.ReactNode;
+  style?: ViewStyle;
 }) {
   return (
     <LinearGradient
-      colors={["rgba(255,255,255,0.18)", "rgba(255,255,255,0.08)"]}
-      style={styles.card}
+      colors={[
+        "rgba(255,255,255,0.16)",
+        "rgba(255,255,255,0.04)",
+      ]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.card, style]}
     >
-      <LinearGradient colors={iconBg} style={styles.iconCircle}>
-        {icon}
-      </LinearGradient>
+      {/* Inner glow layer */}
+      <View style={styles.innerGlow} />
 
-      <View>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle && <Text style={styles.sub}>{subtitle}</Text>}
-      </View>
+      {/* Content */}
+      <View style={styles.content}>{children}</View>
     </LinearGradient>
   );
 }
-
-
 const styles = StyleSheet.create({
   card: {
-    flexDirection: "row",
-    alignItems: "center",
+    borderRadius: 20,
     padding: 18,
-    borderRadius: 18,
-    marginBottom: 18,
+    position: "relative",
 
+    // Soft border
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.15)",
 
+    // Outer shadow (depth)
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 10,
   },
 
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 16,
+  innerGlow: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 20,
+
+    // Subtle inner light
+    shadowColor: "#fff",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
   },
 
-  title: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "600",
-  },
-
-  sub: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.6)",
-    marginTop: 2,
+  content: {
+    zIndex: 1,
   },
 });

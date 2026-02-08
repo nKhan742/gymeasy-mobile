@@ -10,9 +10,9 @@ import {
 } from "react-native";
 
 import GlassButton from "@/components/ui/GlassButton";
+import GlassInput from "@/components/ui/GlassInput";
+import ScreenWrapper from "@/components/layout/ScreenWrapper";
 import { useAuth } from "@/hooks/useAuth";
-import ScreenWrapper from "../../components/layout/ScreenWrapper";
-import GlassInput from "../../components/ui/GlassInput";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -26,8 +26,19 @@ export default function RegisterScreen() {
   const [error, setError] = useState("");
 
   const handleRegister = async () => {
-    if (!ownerName.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+    if (
+      !ownerName.trim() ||
+      !phone.trim() ||
+      !email.trim() ||
+      !password.trim() ||
+      !confirmPassword.trim()
+    ) {
       setError("Please fill in all required fields");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(phone)) {
+      setError("Enter a valid 10-digit phone number");
       return;
     }
 
@@ -43,27 +54,31 @@ export default function RegisterScreen() {
 
     try {
       setError("");
-      await register(email.trim(), password, ownerName.trim());
-      // Small delay to ensure state is settled before navigation
-      setTimeout(() => {
-        router.replace('/(tabs)/dashboard');
-      }, 100);
-    } catch (error: any) {
-      console.log("REGISTER ERROR:", error.response?.data || error.message);
-      const statusCode = error.response?.status;
-      let errorMessage = "Registration failed. Please try again.";
+      await register(
+        email.trim(),
+        password,
+        ownerName.trim(),
+        phone.trim()
+      );
 
-      if (statusCode === 409) {
-        errorMessage = "An account with this email already exists.";
-      } else if (statusCode === 400) {
-        errorMessage = error.response?.data?.message || "Invalid registration details.";
-      } else if (statusCode >= 500) {
-        errorMessage = "Server error. Please try again later.";
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
+      setTimeout(() => {
+        router.replace("/(tabs)/dashboard");
+      }, 100);
+    } catch (err: any) {
+      console.log("REGISTER ERROR:", err.response?.data || err.message);
+
+      const status = err.response?.status;
+      let message = "Registration failed. Please try again.";
+
+      if (status === 409) {
+        message = "An account with this email already exists.";
+      } else if (status === 400) {
+        message = err.response?.data?.message || "Invalid registration details.";
+      } else if (status >= 500) {
+        message = "Server error. Please try again later.";
       }
 
-      setError(errorMessage);
+      setError(message);
     }
   };
 
@@ -73,12 +88,10 @@ export default function RegisterScreen() {
         <View style={styles.container}>
 
           {/* LOGO */}
-          <View style={styles.logoWrapper}>
-            <Image
-              source={require("../../assets/images/logo.png")}
-              style={styles.logo}
-            />
-          </View>
+          <Image
+            source={require("../../assets/images/logo.png")}
+            style={styles.logo}
+          />
 
           {/* TITLE */}
           <Text style={styles.title}>Create Your Gym Account</Text>
@@ -86,10 +99,10 @@ export default function RegisterScreen() {
             Register once. Manage everything effortlessly.
           </Text>
 
-          {/* INPUTS */}
+          {/* OWNER NAME */}
           <GlassInput>
             <TextInput
-              placeholder="Gym Owner Name"
+              placeholder="Name"
               placeholderTextColor="rgba(255,255,255,0.6)"
               style={styles.input}
               value={ownerName}
@@ -99,11 +112,13 @@ export default function RegisterScreen() {
 
           <View style={styles.gap} />
 
+          {/* PHONE */}
           <GlassInput>
             <TextInput
               placeholder="Phone Number"
               placeholderTextColor="rgba(255,255,255,0.6)"
               keyboardType="phone-pad"
+              maxLength={10}
               style={styles.input}
               value={phone}
               onChangeText={setPhone}
@@ -112,6 +127,7 @@ export default function RegisterScreen() {
 
           <View style={styles.gap} />
 
+          {/* EMAIL */}
           <GlassInput>
             <TextInput
               placeholder="Email"
@@ -126,6 +142,7 @@ export default function RegisterScreen() {
 
           <View style={styles.gap} />
 
+          {/* PASSWORD */}
           <GlassInput>
             <TextInput
               placeholder="Password"
@@ -139,6 +156,7 @@ export default function RegisterScreen() {
 
           <View style={styles.gap} />
 
+          {/* CONFIRM PASSWORD */}
           <GlassInput>
             <TextInput
               placeholder="Confirm Password"
@@ -150,32 +168,27 @@ export default function RegisterScreen() {
             />
           </GlassInput>
 
-          {/* ERROR MESSAGE */}
-          {error ? (
-            <Text style={styles.errorText}>{error}</Text>
-          ) : null}
+          {/* ERROR */}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           {/* REGISTER BUTTON */}
-
           <GlassButton
             title={isLoading ? "Creating Account..." : "Register"}
             onPress={handleRegister}
-            style={{ marginTop: 18 }}
             disabled={isLoading}
+            style={{ marginTop: 18 }}
           />
 
           {/* FOOTER */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>Already have an account?</Text>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => router.replace("/(auth)/login")}
-            >
+            <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
               <Text style={styles.login}> Login</Text>
             </TouchableOpacity>
           </View>
 
-        </View></View>
+        </View>
+      </View>
     </ScreenWrapper>
   );
 }
@@ -184,31 +197,21 @@ const styles = StyleSheet.create({
   centerWrapper: {
     flex: 1,
     justifyContent: "center",
-    width: "100%",
   },
-
   container: {
-    width: "100%",
-    alignItems: "center",
     paddingHorizontal: 24,
+    alignItems: "center",
   },
-
-  logoWrapper: {
-    marginBottom: 16,
-  },
-
   logo: {
     width: 72,
     height: 72,
+    marginBottom: 16,
   },
-
   title: {
     fontSize: 26,
     fontFamily: "Inter-Bold",
     color: "#ffffff",
-    marginTop: 8,
   },
-
   subtitle: {
     fontSize: 14,
     fontFamily: "Inter-Regular",
@@ -217,59 +220,30 @@ const styles = StyleSheet.create({
     marginBottom: 28,
     textAlign: "center",
   },
-
   input: {
     color: "#ffffff",
-    fontFamily: "Inter-Regular",
     fontSize: 15,
-    letterSpacing: 0.2,
+    fontFamily: "Inter-Regular",
   },
-
   gap: {
     height: 14,
   },
-
-  buttonOutline: {
-    width: "100%",
-    borderRadius: 14,
-    padding: 1.2,
-    backgroundColor: "rgba(255,255,255,0.35)",
-  },
-
-  button: {
-    width: "100%",
-    height: 54,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  buttonText: {
-    fontSize: 17,
-    fontFamily: "Inter-SemiBold",
-    color: "#ffffff",
-  },
-
   footer: {
     flexDirection: "row",
     marginTop: 24,
   },
-
   footerText: {
     color: "#cfcfcf",
     fontFamily: "Inter-Regular",
   },
-
   login: {
     color: "#ffffff",
     fontFamily: "Inter-SemiBold",
   },
-
   errorText: {
     color: "#ff6b6b",
-    fontSize: 14,
+    marginTop: 10,
     fontFamily: "Inter-Regular",
-    marginTop: 8,
     textAlign: "center",
   },
 });

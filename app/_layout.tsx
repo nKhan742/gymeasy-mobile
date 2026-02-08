@@ -1,7 +1,12 @@
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+
 import { AuthGuard } from "../components/AuthGuard";
 import { ThemeProvider } from "../contexts/ThemeContext";
+import Toast from "react-native-toast-message"; // ✅ ADD
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -11,39 +16,40 @@ export default function RootLayout() {
     "Inter-Bold": require("../assets/fonts/Inter_18pt-Bold.ttf"),
   });
 
-  // Auth state is now properly managed by Zustand persist hydration
-  // No need for manual loading state management
-
   if (!fontsLoaded) {
     return null;
   }
 
   return (
-    <ThemeProvider>
-      <AuthGuard>
-        <Stack
-          screenOptions={{
-            headerShown: false,
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <AuthGuard>
+            <StatusBar style="light" />
 
-            // 🔥 Smooth global transitions
-            animation: "fade",
-            animationDuration: 260,
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: "fade",
+                animationDuration: 260,
+                gestureEnabled: true,
+                contentStyle: {
+                  backgroundColor: "#000000",
+                },
+              }}
+            >
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="notifications" />
+              <Stack.Screen name="settings" />
+            </Stack>
 
-            // Natural gesture handling
-            gestureEnabled: true,
-             // 🔴 THIS FIXES WHITE FLASH
-        contentStyle: {
-          backgroundColor: "#000000",
-        },
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="notifications" />
-          <Stack.Screen name="settings" />
-        </Stack>
-      </AuthGuard>
-    </ThemeProvider>
+            {/* 🔔 GLOBAL TOAST (ADD HERE, ONCE) */}
+            <Toast />
+          </AuthGuard>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

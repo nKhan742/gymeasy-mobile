@@ -1,12 +1,11 @@
-import { useThemeContext } from "@/contexts/ThemeContext";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-    ViewStyle,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ViewStyle,
 } from "react-native";
 
 interface GlassButtonProps {
@@ -16,12 +15,10 @@ interface GlassButtonProps {
   disabled?: boolean;
 }
 
-// Helper function to convert hex to rgba
-const hexToRgba = (hex: string, alpha: number): string => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
+/* === BUTTON GRADIENT (MATCHES EDIT PROFILE IMAGE) === */
+const GRADIENT = {
+  rim: ["#352039", "#897faa", "#352039"],
+  fill: [ "#251736","#322754", "#251736"],
 };
 
 export default function GlassButton({
@@ -30,14 +27,6 @@ export default function GlassButton({
   style,
   disabled = false,
 }: GlassButtonProps) {
-  const { colors } = useThemeContext();
-  
-  // Create rgba versions for rim and fill
-  const rimColor1 = hexToRgba(colors.gradient[0], 0.9);
-  const rimColor2 = hexToRgba(colors.gradient[1], 0.9);
-  const fillColor1 = hexToRgba(colors.gradient[0], 0.85);
-  const fillColor2 = hexToRgba(colors.gradient[1], 0.85);
-
   return (
     <TouchableOpacity
       activeOpacity={0.9}
@@ -45,9 +34,9 @@ export default function GlassButton({
       disabled={disabled}
       style={[styles.wrapper, style, disabled && { opacity: 0.6 }]}
     >
-      {/* SHINY GRADIENT RIM */}
+      {/* SHINY GLASS RIM */}
       <LinearGradient
-        colors={[rimColor1, rimColor2, rimColor1]}
+        colors={GRADIENT.rim}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.rim}
@@ -56,9 +45,9 @@ export default function GlassButton({
         <View style={styles.glass}>
           {/* BUTTON FILL */}
           <LinearGradient
-            colors={[fillColor1, fillColor2]}
-            start={{ x: 0.1, y: 0.2 }}
-            end={{ x: 0.9, y: 0.8 }}
+            colors={GRADIENT.fill}
+            start={{ x: 0.15, y: 0.2 }}
+            end={{ x: 0.85, y: 0.8 }}
             style={styles.fill}
           >
             <Text style={styles.text}>{title}</Text>
@@ -74,30 +63,34 @@ const styles = StyleSheet.create({
     width: "100%",
   },
 
+  /* Thin shiny outline */
   rim: {
     borderRadius: 20,
-    padding: 1.5, // thickness of shiny rim
+    padding: 1.5,
   },
 
+  /* Frosted glass layer */
   glass: {
-    borderRadius: 17,
+    borderRadius: 18,
     overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.12)", // frosted plate
+    backgroundColor: "rgba(255,255,255,0.08)",
+    shadowColor: "#b48cff",
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
   },
 
+  /* Main gradient fill */
   fill: {
     height: 56,
-    borderRadius: 17,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
-    opacity: 0.95,
   },
 
   text: {
     fontSize: 16,
     fontFamily: "Inter-SemiBold",
     color: "#ffffff",
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
   },
 });
-

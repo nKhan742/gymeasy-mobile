@@ -1,486 +1,408 @@
 import Header from "@/components/layout/Header";
 import ScreenWrapper from "@/components/layout/ScreenWrapper";
-import { useThemeContext } from "@/contexts/ThemeContext";
+import GlassCard from "@/components/ui/GlassCard";
 import { getMembers } from "@/services/member.service";
 import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
-    Alert,
-    FlatList,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 
-import { useFocusEffect } from "expo-router";
-import { useCallback } from "react";
+const TABS = ["All", "Active", "Expired", "Expiring Soon"];
 
+/* 🔥 FULL TEMPLATE LIST */
+const MESSAGE_TEMPLATES = [
+  { id: 1, label: "Gym Closed", text: "Our gym is closed today. We will reopen tomorrow." },
+  { id: 2, label: "Fees Reminder", text: "Hi 👋 Your gym membership fees are due. Please renew to continue 💪" },
+  { id: 3, label: "Expired", text: "Hi! Your gym membership has expired. Renew today to stay consistent 💪" },
+  { id: 4, label: "Expiring Soon", text: "Hi! Your gym membership is expiring soon. Renew early to avoid interruption 🏋️‍♂️" },
+  { id: 5, label: "Special Offer", text: "🎉 Special gym offer running now! Contact us for details." },
+  { id: 6, label: "Welcome", text: "Welcome to our gym! We're excited to have you on this fitness journey 💪" },
+  { id: 7, label: "New Class", text: "📢 New fitness class launched! Ask us for timings." },
+  { id: 8, label: "Birthday Wish", text: "🎂 Happy Birthday! Wishing you a strong and healthy year ahead 💪" },
+  { id: 9, label: "Feedback", text: "We’d love your feedback! Let us know how we can improve." },
+  { id: 10, label: "Season Offer", text: "🔥 Seasonal discounts available. Limited time only!" },
+];
+
+const STATUS_COLORS: any = {
+  Active: {
+    backgroundColor: "rgba(34,197,94,0.18)",
+    borderColor: "rgba(34,197,94,0.45)",
+  },
+  Expired: {
+    backgroundColor: "rgba(239,68,68,0.18)",
+    borderColor: "rgba(239,68,68,0.45)",
+  },
+  "Expiring Soon": {
+    backgroundColor: "rgba(234,179,8,0.18)",
+    borderColor: "rgba(234,179,8,0.45)",
+  },
+};
 
 export default function WhatsAppScreen() {
-  const { colors } = useThemeContext();
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("All");
-  const [message, setMessage] = useState("Hi! This is from GymEasy.");
+  const [message, setMessage] = useState("Hi! This message is from GymEasy.");
 
-  const TABS = ["All", "Expired", "Expiring Soon"];
+  /* ================= FETCH ================= */
 
-  const messageTemplates = [
-    { id: 1, label: "Gym Closed", text: "Our gym is closed today. We will be back tomorrow!" },
-    { id: 2, label: "Fees Reminder", text: "Your membership fees are due soon. Please pay to continue your membership." },
-    { id: 3, label: "Special Offer", text: "🎉 Special offer: Refer a friend and get 1 month free! Check your membership dashboard." },
-    { id: 4, label: "New Class", text: "📢 New class launched! Check out our latest fitness classes and join us." },
-    { id: 5, label: "Welcome", text: "Welcome to our gym! We're excited to have you. Start your fitness journey with us today! 💪" },
-    { id: 6, label: "Renewal Notice", text: "Your membership is expiring soon. Renew now to continue uninterrupted access." },
-    { id: 7, label: "Birthday Offer", text: "🎂 Happy Birthday! Here's a special birthday offer just for you. Come celebrate with us!" },
-    { id: 8, label: "Equipment Update", text: "✨ Check out our new gym equipment! Come experience the upgrade." },
-    { id: 9, label: "Seasonal Discount", text: "🏋️ Limited time seasonal discount available! Get up to 30% off on annual plans." },
-    { id: 10, label: "Feedback Request", text: "We'd love to hear from you! Share your feedback and help us improve." },
-  ];
+  const fetchMembers = async () => {
+    try {
+      setLoading(true);
+      const data = await getMembers();
+      setMembers(data || []);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const fetchMembers = async () => {
-  try {
-    setLoading(true);
-    const data = await getMembers();
-    setMembers(data || []);
-  } catch (err) {
-    console.log("FETCH MEMBERS ERROR:", err);
-    setMembers([]);
-  } finally {
-    setLoading(false);
-  }
-};
-
-useFocusEffect(
-  useCallback(() => {
+  useFocusEffect(useCallback(() => {
     fetchMembers();
-  }, [])
-);
+  }, []));
 
-const getMemberStatus = (member: any) => {
-  if (!member.expiry) return "Active";
+  /* ================= STATUS LOGIC (SAME AS MEMBERS) ================= */
 
-  const today = new Date();
-  const expiry = new Date(member.expiry);
+  const getExpiryDate = (m: any): Date | null => {
+    const raw =
+      m.expiryDate ||
+      m.expiry ||
+      m.expiresAt ||
+      m.membershipExpiry;
 
-  if (isNaN(expiry.getTime())) return "Active";
+    if (!raw) return null;
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  };
 
-  if (expiry < today) return "Expired";
+  const isExpiringSoon = (m: any) => {
+    const expiry = getExpiryDate(m);
+    if (!expiry) return false;
 
-  if (isExpiringSoon(member.expiry)) return "Expiring Soon";
+    const diff =
+      (expiry.getTime() - Date.now()) /
+      (1000 * 60 * 60 * 24);
 
-  return "Active";
-};
+    return diff > 0 && diff <= 7;
+  };
 
-const isExpiringSoon = (expiry?: string) => {
-  if (!expiry) return false;
+  const getMemberStatus = (m: any) => {
+    const expiry = getExpiryDate(m);
+    if (!expiry) return "Active";
+    if (expiry < new Date()) return "Expired";
+    if (isExpiringSoon(m)) return "Expiring Soon";
+    return "Active";
+  };
 
-  const today = new Date();
-  const exp = new Date(expiry);
+  /* ================= FILTER ================= */
 
-  if (isNaN(exp.getTime())) return false;
-
-  const diffDays =
-    (exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-
-  return diffDays > 0 && diffDays <= 7;
-};
-
-
-
-
-const filteredMembers = (members || [])
-  .filter((m) => {
+  const filteredMembers = members.filter((m) => {
     const status = getMemberStatus(m);
+    if (activeTab !== "All" && status !== activeTab) return false;
 
-    // TAB FILTER
-    if (activeTab !== "All" && status !== activeTab) {
+    if (
+      search &&
+      !m.name?.toLowerCase().includes(search.toLowerCase()) &&
+      !m.phone?.includes(search)
+    )
       return false;
-    }
-
-    // SEARCH FILTER
-    if (search) {
-      return (
-        m.name?.toLowerCase().includes(search.toLowerCase()) ||
-        m.phone?.includes(search)
-      );
-    }
 
     return true;
-  })
-  .sort((a, b) => {
-    const order = { "Expired": 0, "Expiring Soon": 1, "Active": 2 };
-
-    return (
-      order[getMemberStatus(a)] - order[getMemberStatus(b)]
-    );
   });
 
+  /* ================= WHATSAPP ================= */
 
-
-  const formatPhoneNumber = (phone: string): string => {
-    // Remove all non-digit characters
+  const formatPhone = (phone: string) => {
     let cleaned = phone.replace(/\D/g, "");
-    
-    // If it doesn't start with country code, add India's code
-    if (!cleaned.startsWith("91") && cleaned.length === 10) {
+    if (!cleaned.startsWith("91") && cleaned.length === 10)
       cleaned = "91" + cleaned;
-    }
-    
     return cleaned;
   };
 
-  const openWhatsApp = async (memberName: string, memberPhone: string) => {
+  const openWhatsApp = async (phone: string) => {
     try {
-      const formattedPhone = formatPhoneNumber(memberPhone);
-      const encodedMessage = encodeURIComponent(message);
-      
-      // WhatsApp URL scheme for app
-      const whatsappUrl = `whatsapp://send?phone=${formattedPhone}&text=${encodedMessage}`;
-      
-      // Check if WhatsApp is installed
-      const canOpen = await Linking.canOpenURL(whatsappUrl);
-      
-      if (canOpen) {
-        await Linking.openURL(whatsappUrl);
-      } else {
-        // Fallback to web URL
-        const webUrl = `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
-        await Linking.openURL(webUrl);
-      }
-    } catch (error) {
-      console.log("WHATSAPP ERROR:", error);
-      Alert.alert("Error", "Unable to open WhatsApp. Please try again.");
+      const formatted = formatPhone(phone);
+      const encoded = encodeURIComponent(message);
+
+      const appUrl = `whatsapp://send?phone=${formatted}&text=${encoded}`;
+      const webUrl = `https://wa.me/${formatted}?text=${encoded}`;
+
+      const canOpen = await Linking.canOpenURL(appUrl);
+      await Linking.openURL(canOpen ? appUrl : webUrl);
+    } catch {
+      Alert.alert("Error", "Unable to open WhatsApp");
     }
   };
 
-  const renderMember = ({ item }: any) => (
-    <View style={styles.memberCard}>
-      <View style={styles.memberInfo}>
-        <Text style={styles.memberName}>{item.name}</Text>
-        <Text style={styles.memberPhone}>{item.phone}</Text>
-      </View>
-      <TouchableOpacity
-        style={styles.whatsappBtn}
-        onPress={() => openWhatsApp(item.name, item.phone)}
-      >
-        <Ionicons name="logo-whatsapp" size={20} color="#fff" />
-      </TouchableOpacity>
-    </View>
-  );
+  /* ================= UI ================= */
 
-  if (loading) {
+  const renderMember = ({ item }: any) => {
+    const status = getMemberStatus(item);
+
     return (
-      <ScreenWrapper>
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.loader}>
-            <Text style={{ color: "#fff" }}>Loading members...</Text>
+      <GlassCard style={styles.memberCard}>
+        <View style={styles.memberRow}>
+          <View>
+            <Text style={styles.memberName}>{item.name}</Text>
+            <Text style={styles.memberPhone}>+91 {item.phone}</Text>
+            <Text style={styles.memberMeta}>
+              {item.plan || "Standard"} • ₹{item.amount}
+            </Text>
           </View>
-        </SafeAreaView>
-      </ScreenWrapper>
+
+          <View style={styles.rightActions}>
+            <View
+              style={[
+                styles.statusBadge,
+                STATUS_COLORS[status],
+              ]}
+            >
+              <Text style={styles.statusText}>{status}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.whatsappGlassBtn}
+              onPress={() => openWhatsApp(item.phone)}
+            >
+              <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </GlassCard>
     );
-  }
+  };
 
   return (
     <ScreenWrapper>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={{ flex: 1 }}>
         <Header title="WhatsApp" />
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContainer}
-        >
-          <View style={styles.container}>
-          {/* MESSAGE INPUT WITH TEMPLATES */}
-          <View style={styles.messageSection}>
-          <Text style={styles.sectionLabel}>Message Template</Text>
-          <View style={styles.messageBox}>
+
+        {/* 🔒 STICKY TOP */}
+        <View style={styles.stickyContainer}>
+          <GlassCard>
             <TextInput
-              placeholder="Enter your message..."
-              placeholderTextColor="rgba(255,255,255,0.5)"
-              style={styles.messageInput}
               value={message}
               onChangeText={setMessage}
+              placeholder="Type WhatsApp message..."
+              placeholderTextColor="#ffffffaa"
               multiline
-              maxLength={1000}
+              style={styles.messageInput}
             />
-            <Text style={styles.charCount}>
-              {message.length}/1000
-            </Text>
-            
-            {/* Quick Templates - Horizontal Scrollable */}
-            <ScrollView
+
+            {/* 🔥 SCROLLABLE TEMPLATES */}
+            <FlatList
+              data={MESSAGE_TEMPLATES}
               horizontal
               showsHorizontalScrollIndicator={false}
-              style={styles.templatesScroll}
-              contentContainerStyle={styles.templatesContent}
-            >
-              {messageTemplates.map((template) => (
+              keyExtractor={(i) => i.id.toString()}
+              contentContainerStyle={{ gap: 8, paddingTop: 8 }}
+              renderItem={({ item }) => (
                 <TouchableOpacity
-                  key={template.id}
-                  style={[styles.templateBtn, { borderColor: colors.primary, backgroundColor: `${colors.primary}26` }]}
-                  onPress={() => setMessage(template.text)}
+                  style={styles.templateChip}
+                  onPress={() => setMessage(item.text)}
                 >
-                  <Text style={[styles.templateBtnText, { color: colors.primary }]}>{template.label}</Text>
+                  <Text style={styles.templateText}>{item.label}</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+              )}
+            />
+          </GlassCard>
+
+          {/* TABS */}
+          <View style={styles.tabsRow}>
+            {TABS.map((t) => {
+              const active = activeTab === t;
+              return (
+                <TouchableOpacity
+                  key={t}
+                  style={[
+                    styles.tab,
+                    active && styles.tabActive,
+                  ]}
+                  onPress={() => setActiveTab(t)}
+                >
+                  <Text
+                    style={[
+                      styles.tabText,
+                      active && styles.tabTextActive,
+                    ]}
+                  >
+                    {t}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* SEARCH */}
+          <View style={styles.glassSearch}>
+            <Ionicons name="search-outline" size={18} color="#ffffffcc" />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search members..."
+              placeholderTextColor="#ffffffaa"
+              style={styles.glassInput}
+            />
           </View>
         </View>
 
-        {/* TABS */}
-        <View style={styles.tabsContainer}>
-          {TABS.map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[
-                styles.tab,
-                activeTab === tab && [styles.tabActive, { backgroundColor: colors.primary, borderColor: colors.primary }]
-              ]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === tab && styles.tabTextActive,
-                ]}
-              >
-                {tab}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* SEARCH */}
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={18} color="#cfcfcf" />
-          <TextInput
-            placeholder="Search members..."
-            placeholderTextColor="#cfcfcf"
-            style={styles.searchInput}
-            value={search}
-            onChangeText={setSearch}
-          />
-        </View>
-
-        {/* MEMBERS LIST */}
-        {filteredMembers.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={48} color="#cfcfcf" />
-            <Text style={styles.emptyText}>
-              {search ? "No members found" : "No members available"}
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={filteredMembers}
-            renderItem={renderMember}
-            keyExtractor={(item) => item._id}
-            scrollEnabled={false}
-            contentContainerStyle={styles.membersList}
-          />
-        )}
-        </View>
-        </ScrollView>
+        {/* 📜 ONLY LIST SCROLLS */}
+        <FlatList
+          data={filteredMembers}
+          keyExtractor={(item, i) =>
+            item._id?.toString() ?? i.toString()
+          }
+          renderItem={renderMember}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }}
+        />
       </SafeAreaView>
     </ScreenWrapper>
   );
 }
 
+/* ================= STYLES ================= */
+
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-
-  scrollContainer: {
-    flexGrow: 1,
-  },
-
-  container: {
+  stickyContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    paddingBottom: 100,
-  },
-
-  templatesScroll: {
-    marginTop: 12,
-    marginHorizontal: -12,
-    paddingHorizontal: 12,
-  },
-
-  templatesContent: {
-    gap: 8,
-    paddingRight: 12,
-  },
-
-  templateBtn: {
-    backgroundColor: "rgba(66, 230, 149, 0.15)",
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: "#42E695",
-    minWidth: 100,
-    alignItems: "center",
-  },
-
-  templateBtnText: {
-    fontSize: 11,
-    fontFamily: "Inter-Medium",
-    color: "#42E695",
-  },
-
-  messageSection: {
-    marginBottom: 16,
-  },
-
-  sectionLabel: {
-    fontSize: 13,
-    fontFamily: "Inter-Medium",
-    color: "#cfcfcf",
-    marginBottom: 8,
-  },
-
-  messageBox: {
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
-    padding: 12,
+    paddingTop: 14,
   },
 
   messageInput: {
     color: "#fff",
-    fontFamily: "Inter-Regular",
-    fontSize: 14,
-    minHeight: 80,
-    maxHeight: 120,
+    minHeight: 70,
   },
 
-  charCount: {
-    color: "rgba(255,255,255,0.5)",
-    fontSize: 11,
-    fontFamily: "Inter-Regular",
-    marginTop: 8,
-    marginBottom: 12,
-    textAlign: "right",
-  },
-
-  searchBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 12,
+  templateChip: {
     paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.14)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
-    marginBottom: 16,
+    borderColor: "rgba(255,255,255,0.22)",
   },
 
-  searchInput: {
-    flex: 1,
+  templateText: {
     color: "#fff",
-    fontFamily: "Inter-Regular",
-    fontSize: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+    fontSize: 12,
   },
 
-  tabsContainer: {
+  tabsRow: {
     flexDirection: "row",
-    marginBottom: 16,
-    gap: 8,
+    gap: 10,
+    marginVertical: 14,
   },
 
   tab: {
     flex: 1,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.14)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+    borderColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
   },
 
   tabActive: {
-    backgroundColor: "#42E695",
-    borderColor: "#42E695",
+    backgroundColor: "rgba(255,255,255,0.28)",
+    borderColor: "rgba(255,255,255,0.45)",
   },
 
   tabText: {
     fontSize: 12,
-    fontFamily: "Inter-Medium",
     color: "#cfcfcf",
   },
 
   tabTextActive: {
-    color: "#000",
+    color: "#fff",
+    fontWeight: "500",
   },
 
-  membersList: {
-    paddingBottom: 20,
+  glassSearch: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 46,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    marginBottom: 10,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.28)",
+  },
+
+  glassInput: {
+    flex: 1,
+    marginLeft: 10,
+    color: "#fff",
+    fontSize: 14,
   },
 
   memberCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-    borderWidth: 1,
+    marginHorizontal: 16,
+    marginBottom: 14,
   },
 
-  memberInfo: {
-    flex: 1,
+  memberRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
 
   memberName: {
     fontSize: 15,
-    fontFamily: "Inter-SemiBold",
     color: "#fff",
   },
 
   memberPhone: {
+    fontSize: 13,
+    color: "#cfcfcf",
+    marginTop: 2,
+  },
+
+  memberMeta: {
     fontSize: 12,
-    fontFamily: "Inter-Regular",
-    color: "#cfcfcf",
-    marginTop: 4,
+    color: "#a8a8a8",
+    marginTop: 3,
   },
 
-  whatsappBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#25D366",
-    justifyContent: "center",
+  rightActions: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 10,
   },
 
-  loader: {
-    flex: 1,
-    justifyContent: "center",
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+
+  statusText: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: "#fff",
+  },
+
+  whatsappGlassBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
     alignItems: "center",
-  },
-
-  emptyState: {
-    flex: 1,
     justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 40,
-  },
-
-  emptyText: {
-    fontSize: 14,
-    fontFamily: "Inter-Regular",
-    color: "#cfcfcf",
-    marginTop: 12,
   },
 });

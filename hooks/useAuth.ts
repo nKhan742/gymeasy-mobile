@@ -16,23 +16,29 @@ export const useAuth = () => {
   } = useAuthStore();
 
   const loginUser = async (email: string, password: string) => {
-    await login(email, password);
+    return await login(email, password);
   };
 
   const googleLoginUser = async (idToken: string) => {
-    await googleLogin(idToken);
+    return await googleLogin(idToken);
   };
 
-  const registerUser = async (email: string, password: string, name: string, gymName?: string) => {
-    await register(email, password, name, gymName);
+  const registerUser = async (
+    email: string,
+    password: string,
+    name: string,
+    phone: string,
+    gymName?: string
+  ) => {
+    return await register(email, password, name, phone, gymName);
   };
 
   const logoutUser = async () => {
-    await logout();
+    return await logout();
   };
 
   const refreshUserAuth = async () => {
-    await refreshAuth();
+    return await refreshAuth();
   };
 
   return {
