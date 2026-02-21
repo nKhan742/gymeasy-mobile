@@ -59,3 +59,15 @@ export const deactivateMember = async (id: string) => {
   const res = await api.patch(`/members/${id}/deactivate`);
   return res.data;
 };
+
+export const toggleMemberFeesPaid = async (id: string) => {
+  try {
+    console.log("📡 [API] Toggling fees paid for member:", id);
+    const res = await api.patch(`/members/${id}/toggle-fees`);
+    console.log("✅ [API] Toggle fees paid success:", res.data);
+    return res.data.data;
+  } catch (error: any) {
+    console.error("❌ [API] TOGGLE FEES PAID FAILED:", error);
+    throw error;
+  }
+};

@@ -1,10 +1,7 @@
 import ScreenWrapper from "@/components/layout/ScreenWrapper";
 import GlassCard from "@/components/ui/GlassCard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  getMemberById,
-  updateMember,
-} from "@/services/member.service";
+import { getMemberById, updateMember } from "@/services/member.service";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -17,7 +14,24 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Platform,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
+
+/* ================= PLAN → MONTHS ================= */
+const getPlanMonths = (plan: string) => {
+  const p = plan.toLowerCase();
+  if (p.includes("year")) return 12;
+  if (p.includes("half")) return 6;
+  if (p.includes("quarter")) return 3;
+  return 1;
+};
+
+const calculateExpiry = (joiningDate: Date, plan: string) => {
+  const expiry = new Date(joiningDate);
+  expiry.setMonth(expiry.getMonth() + getPlanMonths(plan));
+  return expiry;
+};
 
 export default function EditMember() {
   const insets = useSafeAreaInsets();
@@ -26,6 +40,7 @@ export default function EditMember() {
   const [form, setForm] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   /* ================= FETCH ================= */
   useEffect(() => {
@@ -34,6 +49,11 @@ export default function EditMember() {
     const fetchMember = async () => {
       try {
         const data = await getMemberById(memberId);
+
+        const joiningDate = data.joiningDate
+          ? new Date(data.joiningDate)
+          : new Date();
+
         setForm({
           name: data.name,
           phone: String(data.phone),
@@ -42,6 +62,10 @@ export default function EditMember() {
           amount: String(data.amount),
           weight: String(data.weight || ""),
           height: String(data.height || ""),
+          joiningDate,
+          expiryDate: data.expiryDate
+            ? new Date(data.expiryDate)
+            : calculateExpiry(joiningDate, data.plan),
         });
       } catch {
         Alert.alert("Error", "Failed to load member");
@@ -57,7 +81,6 @@ export default function EditMember() {
   /* ================= BMI ================= */
   const bmiData = useMemo(() => {
     if (!form?.weight || !form?.height) return null;
-
     const h = Number(form.height) / 100;
     const bmi = Number(form.weight) / (h * h);
 
@@ -80,6 +103,8 @@ export default function EditMember() {
         amount: Number(form.amount),
         weight: Number(form.weight),
         height: Number(form.height),
+        joiningDate: form.joiningDate,
+        expiryDate: form.expiryDate,
       });
 
       router.back();
@@ -90,7 +115,6 @@ export default function EditMember() {
     }
   };
 
-  /* ================= LOADING ================= */
   if (loading) {
     return (
       <ScreenWrapper>
@@ -103,7 +127,7 @@ export default function EditMember() {
 
   return (
     <ScreenWrapper>
-      {/* ================= HEADER ================= */}
+      {/* HEADER */}
       <View style={[styles.headerWrapper, { paddingTop: insets.top }]}>
         <View style={styles.topBar}>
           <TouchableOpacity onPress={() => router.back()}>
@@ -120,23 +144,22 @@ export default function EditMember() {
             )}
           </TouchableOpacity>
         </View>
-
         <View style={styles.headerDivider} />
       </View>
 
-      {/* ================= CONTENT ================= */}
+      {/* CONTENT */}
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* BASIC DETAILS */}
+        {/* BASIC */}
         <GlassCard>
           <Text style={styles.sectionTitle}>Basic Details</Text>
 
           <EditableRow
             label="Name"
             value={form.name}
-            onChange={(v) => setForm({ ...form, name: v })}
+            onChange={(v: string) => setForm({ ...form, name: v })}
           />
           <Divider />
 
@@ -144,14 +167,14 @@ export default function EditMember() {
             label="Phone"
             value={form.phone}
             keyboard="numeric"
-            onChange={(v) => setForm({ ...form, phone: v })}
+            onChange={(v: string) => setForm({ ...form, phone: v })}
           />
           <Divider />
 
           <EditableRow
             label="Address"
             value={form.address}
-            onChange={(v) => setForm({ ...form, address: v })}
+            onChange={(v: string) => setForm({ ...form, address: v })}
           />
         </GlassCard>
 
@@ -162,7 +185,13 @@ export default function EditMember() {
           <EditableRow
             label="Plan"
             value={form.plan}
-            onChange={(v) => setForm({ ...form, plan: v })}
+            onChange={(plan: string) =>
+              setForm({
+                ...form,
+                plan,
+                expiryDate: calculateExpiry(form.joiningDate, plan),
+              })
+            }
           />
           <Divider />
 
@@ -170,8 +199,27 @@ export default function EditMember() {
             label="Amount"
             value={form.amount}
             keyboard="numeric"
-            onChange={(v) => setForm({ ...form, amount: v })}
+            onChange={(v: string) => setForm({ ...form, amount: v })}
           />
+          <Divider />
+
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Text style={styles.label}>Joining Date</Text>
+            <Text style={styles.input}>
+              {form.joiningDate.toDateString()}
+            </Text>
+          </TouchableOpacity>
+          <Divider />
+
+          <View style={styles.row}>
+            <Text style={styles.label}>Expiry Date</Text>
+            <Text style={styles.input}>
+              {form.expiryDate.toDateString()}
+            </Text>
+          </View>
         </GlassCard>
 
         {/* BMI */}
@@ -192,11 +240,30 @@ export default function EditMember() {
           </GlassCard>
         )}
       </ScrollView>
+
+      {/* DATE PICKER (CORRECT USAGE) */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={form.joiningDate}
+          mode="date"
+          display={Platform.OS === "ios" ? "inline" : "default"}
+          onChange={(_, date) => {
+            setShowDatePicker(false);
+            if (date) {
+              setForm({
+                ...form,
+                joiningDate: date,
+                expiryDate: calculateExpiry(date, form.plan),
+              });
+            }
+          }}
+        />
+      )}
     </ScreenWrapper>
   );
 }
 
-/* ================= EDITABLE ROW ================= */
+/* ================= SMALL COMPONENTS ================= */
 
 const EditableRow = ({
   label,
@@ -210,8 +277,6 @@ const EditableRow = ({
       value={value}
       onChangeText={onChange}
       keyboardType={keyboard}
-      placeholder="-"
-      placeholderTextColor="#666"
       style={styles.input}
     />
   </View>
@@ -219,102 +284,48 @@ const EditableRow = ({
 
 const Divider = () => <View style={styles.divider} />;
 
-/* ================= STYLES (MATCH PROFILE) ================= */
+/* ================= STYLES ================= */
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    paddingBottom: 120,
-    gap: 16,
-  },
-
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  headerWrapper: {
-    backgroundColor: "transparent",
-  },
-
+  container: { padding: 16, paddingBottom: 120, gap: 16 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  headerWrapper: { backgroundColor: "transparent" },
   topBar: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-
   headerDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: "rgba(255,255,255,0.15)",
   },
-
-  title: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  sectionTitle: {
-    color: "#fff",
-    fontSize: 14,
-    marginBottom: 10,
-  },
-
+  title: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  sectionTitle: { color: "#fff", fontSize: 14, marginBottom: 10 },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     paddingVertical: 10,
     alignItems: "center",
   },
-
-  label: {
-    color: "#a8a8a8",
-    fontSize: 13,
-  },
-
-  input: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "500",
-    padding: 0,
-    textAlign: "right",
-    minWidth: 120,
-  },
-
+  label: { color: "#a8a8a8", fontSize: 13 },
+  input: { color: "#fff", fontSize: 13, textAlign: "right" },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: "rgba(255,255,255,0.15)",
   },
-
   bmiRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-
-  bmiValue: {
-    fontSize: 34,
-    color: "#fff",
-    fontWeight: "600",
-  },
-
-  bmiLabel: {
-    fontSize: 12,
-    color: "#cfcfcf",
-  },
-
+  bmiValue: { fontSize: 34, color: "#fff", fontWeight: "600" },
+  bmiLabel: { fontSize: 12, color: "#cfcfcf" },
   bmiPlanBox: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 14,
     backgroundColor: "rgba(255,255,255,0.15)",
   },
-
-  bmiPlanText: {
-    color: "#fff",
-    fontSize: 13,
-  },
+  bmiPlanText: { color: "#fff", fontSize: 13 },
 });

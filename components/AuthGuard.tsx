@@ -2,9 +2,11 @@ import { useRouter, useSegments } from 'expo-router';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
+import { useAuthHydration } from '../hooks/useAuthHydration';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, isHydrated } = useAuth();
+  useAuthHydration(); // Trigger gym data hydration
   const segments = useSegments();
   const router = useRouter();
 

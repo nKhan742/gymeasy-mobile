@@ -10,7 +10,20 @@ class AuthService {
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
       const response = await api.post<AuthResponse>('/auth/login', credentials);
+      
+      console.log("📡 AuthService.login() raw response.data:", JSON.stringify(response.data, null, 2));
+      
       const { token, user, refreshToken } = response.data;
+
+      console.log("📡 AuthService.login() after destructuring:", {
+        token: token ? "✅" : "❌",
+        userId: user?._id,
+        userName: user?.name,
+        userEmail: user?.email,
+        userGym: user?.gym,
+        refreshToken: refreshToken ? "✅" : "❌",
+        userKeys: user ? Object.keys(user) : "null",
+      });
 
       await this.setToken(token);
       await this.setUser(user);
@@ -18,8 +31,10 @@ class AuthService {
         await this.setRefreshToken(refreshToken);
       }
 
+      console.log("✅ AuthService.login() saved to AsyncStorage");
       return response.data;
     } catch (error) {
+      console.error("❌ AuthService.login() error:", error);
       throw error;
     }
   }
@@ -29,6 +44,12 @@ class AuthService {
       const response = await api.post<AuthResponse>('/auth/register', data);
       const { token, user, refreshToken } = response.data;
 
+      console.log("📡 AuthService.register() received response:", {
+        token: token ? "✅" : "❌",
+        userId: user?._id,
+        userName: user?.name,
+      });
+
       await this.setToken(token);
       await this.setUser(user);
       if (refreshToken) {
@@ -37,6 +58,7 @@ class AuthService {
 
       return response.data;
     } catch (error) {
+      console.error("❌ AuthService.register() error:", error);
       throw error;
     }
   }
@@ -60,12 +82,13 @@ class AuthService {
 
   async logout(): Promise<void> {
     try {
-      // Call logout endpoint if your backend has one
+      // Call logout endpoint to notify backend
       await api.post('/auth/logout');
     } catch (error) {
-      console.log('Logout API call failed:', error);
+      // Logout from backend failed, but still clear local data
+      console.log('Logout API call failed, clearing local data anyway:', error);
     } finally {
-      // Clear local storage regardless of API call success
+      // Always clear local storage regardless of API call success
       await this.clearAuthData();
     }
   }

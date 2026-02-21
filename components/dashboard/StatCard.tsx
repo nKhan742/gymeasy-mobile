@@ -8,6 +8,7 @@ type Props = {
   label: string;
   value: string;
   sub?: string;
+  isClickable?: boolean;
 };
 
 export default function StatCard({
@@ -15,6 +16,7 @@ export default function StatCard({
   label,
   value,
   sub,
+  isClickable,
 }: Props) {
   return (
     <View style={styles.wrapper}>
@@ -56,9 +58,25 @@ export default function StatCard({
           <Text style={styles.value}>{value}</Text>
         </View>
 
-        <Text style={styles.label}>{label}</Text>
-        {sub && <Text style={styles.sub}>{sub}</Text>}
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>{label}</Text>
+            {sub && <Text style={styles.sub}>{sub}</Text>}
+          </View>
+          {isClickable && (
+            <View style={styles.clickIndicator}>
+              <Ionicons name="arrow-forward" size={16} color="#60a5fa" />
+            </View>
+          )}
+        </View>
       </View>
+
+      {/* CLICKABLE BADGE */}
+      {isClickable && (
+        <View style={styles.clickBadge}>
+          <Text style={styles.clickBadgeText}>Tap</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -125,5 +143,29 @@ const styles = StyleSheet.create({
     left: 0,
     width: 1,
     bottom: 0,
+  },
+
+  clickIndicator: {
+    paddingLeft: 8,
+    justifyContent: "center",
+  },
+
+  clickBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(96,165,250,0.8)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(96,165,250,1)",
+  },
+
+  clickBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#fff",
+    letterSpacing: 0.3,
   },
 });

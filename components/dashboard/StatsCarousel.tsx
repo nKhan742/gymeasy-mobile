@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View, TouchableOpacity } from "react-native";
 import StatCard from "./StatCard";
 
 interface StatsCarouselProps {
@@ -7,6 +7,8 @@ interface StatsCarouselProps {
   totalRevenue: number;
   monthlyRevenue: number;
   expiringCount: number;
+  pendingRevenue: number;
+  onRevenuePress?: () => void;
 }
 
 export default function StatsCarousel({
@@ -15,6 +17,8 @@ export default function StatsCarousel({
   totalRevenue,
   monthlyRevenue,
   expiringCount,
+  pendingRevenue,
+  onRevenuePress,
 }: StatsCarouselProps) {
   return (
     <View style={styles.wrapper}>
@@ -47,12 +51,23 @@ export default function StatsCarousel({
           sub="Monthly revenue"
         />
 
-        {/* TOTAL REVENUE */}
+        {/* TOTAL REVENUE - CLICKABLE */}
+        <TouchableOpacity onPress={onRevenuePress} activeOpacity={0.85}>
+          <StatCard
+            icon="cash-outline"
+            label="Total Revenue"
+            value={`₹${totalRevenue.toLocaleString("en-IN")}`}
+            sub="Overall collection"
+            isClickable={true}
+          />
+        </TouchableOpacity>
+
+        {/* PENDING REVENUE */}
         <StatCard
-          icon="cash-outline"
-          label="Total Revenue"
-          value={`₹${totalRevenue.toLocaleString("en-IN")}`}
-          sub="Overall collection"
+          icon="hourglass-outline"
+          label="Pending"
+          value={`₹${pendingRevenue.toLocaleString("en-IN")}`}
+          sub="Awaiting payment"
         />
       </ScrollView>
     </View>

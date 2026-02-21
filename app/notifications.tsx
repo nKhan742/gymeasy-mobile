@@ -157,20 +157,25 @@ export default function NotificationsScreen() {
     <ScreenWrapper>
       <SafeAreaView style={{ flex: 1 }}>
         {/* HEADER */}
-        <View style={[styles.header, { paddingTop: insets.top }]}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={24} color="#fff" />
-          </TouchableOpacity>
-
-          <Text style={styles.headerTitle}>Notifications</Text>
-
-          {notifications.length > 0 ? (
-            <TouchableOpacity onPress={clearAll}>
-              <Text style={styles.clear}>Clear all</Text>
+        <View style={[styles.headerWrapper, { paddingTop: insets.top }]}>
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={22} color="#fff" />
             </TouchableOpacity>
-          ) : (
-            <View style={{ width: 60 }} />
-          )}
+
+            <Text style={styles.title}>Notifications</Text>
+
+            {notifications.length > 0 ? (
+              <TouchableOpacity onPress={clearAll}>
+                <Text style={styles.clear}>Clear all</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ width: 60 }} />
+            )}
+          </View>
+
+          {/* Hairline */}
+          <View style={styles.headerDivider} />
         </View>
 
         {/* BODY */}
@@ -252,20 +257,27 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
+  headerWrapper: {
+    backgroundColor: "transparent",
+  },
+
+  topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingBottom: 20,
-    paddingTop: 20,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#ffffff33",
+    paddingVertical: 14,
   },
-  headerTitle: {
+
+  headerDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+
+  title: {
     color: "#fff",
-    fontSize: 18,
-    fontFamily: "Inter-SemiBold",
+    fontSize: 16,
+    fontWeight: "600",
   },
   clear: {
     color: "#fff",

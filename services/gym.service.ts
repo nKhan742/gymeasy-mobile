@@ -9,3 +9,9 @@ export const registerGym = async (payload: {
   const res = await api.post("/gym/register", payload);
   return res.data.gym;
 };
+
+export const getMyGym = async () => {
+  const res = await api.get("/gym/me");
+  return res.data; 
+  // expected: { hasGym: boolean, gym: {...} | null }
+};

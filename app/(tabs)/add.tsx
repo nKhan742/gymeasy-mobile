@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 import {
   Alert,
@@ -18,6 +19,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Platform,
 } from "react-native";
 
 export default function AddMemberScreen() {
@@ -26,6 +28,7 @@ export default function AddMemberScreen() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -33,7 +36,7 @@ export default function AddMemberScreen() {
     address: "",
     plan: "",
     amount: "",
-    feesPaid: false,
+    joiningDate: new Date(),
   });
 
   const plans = [
@@ -42,8 +45,21 @@ export default function AddMemberScreen() {
     { label: "Yearly", value: "Yearly", amount: 10000 },
   ];
 
+  /* ================= HELPERS ================= */
+
   const handleChange = (key: string, value: any) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const resetForm = () => {
+    setForm({
+      name: "",
+      phone: "",
+      address: "",
+      plan: "",
+      amount: "",
+      joiningDate: new Date(),
+    });
   };
 
   const handlePlanSelect = (plan: string, amount: number) => {
@@ -55,24 +71,7 @@ export default function AddMemberScreen() {
     setShowPlanModal(false);
   };
 
-  // 🔑 AUTO CALCULATE EXPIRY BASED ON PLAN
-  const calculateExpiry = (plan: string) => {
-    const date = new Date();
-
-    switch (plan) {
-      case "Monthly":
-        date.setMonth(date.getMonth() + 1);
-        break;
-      case "Quarterly":
-        date.setMonth(date.getMonth() + 3);
-        break;
-      case "Yearly":
-        date.setFullYear(date.getFullYear() + 1);
-        break;
-    }
-
-    return date.toISOString();
-  };
+  /* ================= SAVE MEMBER ================= */
 
   const saveMember = async () => {
     const parsedAmount = Number(form.amount);
@@ -98,16 +97,15 @@ export default function AddMemberScreen() {
       address: form.address.trim() || undefined,
       plan: form.plan,
       amount: parsedAmount,
-      feesPaid: form.feesPaid,
-      joiningDate: new Date().toISOString(),
-      expiry: calculateExpiry(form.plan), // ✅ FIX
+      joiningDate: form.joiningDate.toISOString(),
+      feesPaid: true,    // ✅ NEW MEMBERS START AS PAID (REVENUE)
     };
-
-    console.log("📦 ADD MEMBER PAYLOAD:", payload);
 
     try {
       setIsLoading(true);
       await addMember(payload);
+
+      resetForm(); // ✅ refresh screen state
 
       Alert.alert("Success", "Member added successfully", [
         {
@@ -116,15 +114,16 @@ export default function AddMemberScreen() {
         },
       ]);
     } catch (error: any) {
-      console.log("❌ ADD MEMBER ERROR:", error?.response?.data || error.message);
       Alert.alert(
         "Error",
-        error?.response?.data?.message || "Failed to add member"
+        error?.response?.data?.error || "Failed to add member"
       );
     } finally {
       setIsLoading(false);
     }
   };
+
+  /* ================= UI ================= */
 
   return (
     <ScreenWrapper>
@@ -135,7 +134,7 @@ export default function AddMemberScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContainer}
         >
-          <View style={styles.centerWrapper}>
+          <View style={styles.formWrapper}>
             <GlassInput>
               <TextInput
                 placeholder="Full Name"
@@ -146,7 +145,7 @@ export default function AddMemberScreen() {
               />
             </GlassInput>
 
-            <View style={styles.gap} />
+            <Gap />
 
             <GlassInput>
               <TextInput
@@ -159,7 +158,7 @@ export default function AddMemberScreen() {
               />
             </GlassInput>
 
-            <View style={styles.gap} />
+            <Gap />
 
             <GlassInput>
               <TextInput
@@ -171,9 +170,26 @@ export default function AddMemberScreen() {
               />
             </GlassInput>
 
-            <View style={styles.gap} />
+            <Gap />
 
-            {/* PLAN SELECT */}
+            {/* JOINING DATE */}
+            <TouchableOpacity
+              style={styles.planButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={styles.planButtonText}>
+                Joining Date: {form.joiningDate.toDateString()}
+              </Text>
+              <Ionicons
+                name="calendar-outline"
+                size={20}
+                color="rgba(255,255,255,0.6)"
+              />
+            </TouchableOpacity>
+
+            <Gap />
+
+            {/* PLAN */}
             <TouchableOpacity
               style={styles.planButton}
               onPress={() => setShowPlanModal(true)}
@@ -225,7 +241,7 @@ export default function AddMemberScreen() {
               </TouchableOpacity>
             </Modal>
 
-            <View style={styles.gap} />
+            <Gap />
 
             <GlassInput>
               <TextInput
@@ -238,18 +254,6 @@ export default function AddMemberScreen() {
               />
             </GlassInput>
 
-            <TouchableOpacity
-              style={styles.checkboxRow}
-              onPress={() => handleChange("feesPaid", !form.feesPaid)}
-            >
-              <View style={styles.checkbox}>
-                {form.feesPaid && (
-                  <Ionicons name="checkmark" size={16} color="#fff" />
-                )}
-              </View>
-              <Text style={styles.checkboxText}>Fees Paid</Text>
-            </TouchableOpacity>
-
             <GlassButton
               title={isLoading ? "Adding..." : "Save Member"}
               onPress={saveMember}
@@ -258,45 +262,47 @@ export default function AddMemberScreen() {
             />
           </View>
         </ScrollView>
+
+        {/* DATE PICKER */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={form.joiningDate}
+            mode="date"
+            display={Platform.OS === "ios" ? "inline" : "default"}
+            onChange={(_, date) => {
+              setShowDatePicker(false);
+              if (date) handleChange("joiningDate", date);
+            }}
+          />
+        )}
       </SafeAreaView>
     </ScreenWrapper>
   );
 }
 
+const Gap = () => <View style={{ height: 14 }} />;
+
+/* ================= STYLES ================= */
+
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  scrollContainer: { flexGrow: 1 },
-  centerWrapper: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 20,
+
+  scrollContainer: {
     paddingBottom: 60,
   },
+
+  formWrapper: {
+    padding: 20,
+  },
+
   input: {
     color: "#fff",
     fontFamily: "Inter-Regular",
     fontSize: 15,
   },
-  gap: { height: 14 },
-  checkboxRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 18,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-  },
-  checkboxText: {
-    color: "#fff",
-    fontFamily: "Inter-Medium",
-  },
+
+
+
   planButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -308,26 +314,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.25)",
   },
+
   planButtonText: {
     color: "#fff",
     fontFamily: "Inter-Regular",
     fontSize: 15,
     flex: 1,
   },
+
   planButtonPlaceholder: {
     color: "rgba(255,255,255,0.6)",
   },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
   },
+
   modalContent: {
     backgroundColor: "#1a1a2e",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
   },
+
   modalTitle: {
     fontSize: 18,
     fontFamily: "Inter-SemiBold",
@@ -335,6 +346,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: "center",
   },
+
   planOption: {
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -342,15 +354,18 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.08)",
     marginBottom: 10,
   },
+
   planOptionActive: {
     backgroundColor: "rgba(66,230,149,0.2)",
     borderColor: "#42E695",
   },
+
   planOptionText: {
     color: "#fff",
     fontFamily: "Inter-Medium",
     fontSize: 15,
   },
+
   planOptionTextActive: {
     color: "#42E695",
   },

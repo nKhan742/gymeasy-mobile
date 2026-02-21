@@ -11,6 +11,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
+  Alert,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -24,9 +26,9 @@ import {
 import Toast from "react-native-toast-message";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { updateProfileField } from "@/services/profile.service";
-import { registerGym } from "@/services/gym.service";
+import { registerGym, getMyGym } from "@/services/gym.service";
 import { useAuthStore } from "@/store/auth.store";
-
+console.log("📁 Loaded SettingsScreen.tsx");
 /* =========================================================
    SETTINGS ROW
 ========================================================= */
@@ -68,10 +70,7 @@ const SettingsRow = React.memo(
             />
 
             {isEditing ? (
-              <TouchableOpacity
-                disabled={isLoading}
-                onPress={onSave}
-              >
+              <TouchableOpacity disabled={isLoading} onPress={onSave}>
                 <Ionicons
                   name={isLoading ? "time-outline" : "save-outline"}
                   size={18}
@@ -100,15 +99,27 @@ const SettingsRow = React.memo(
    SETTINGS SCREEN
 ========================================================= */
 export default function SettingsScreen() {
-
   const { user, logout } = useAuth();
+  const { isLoading } = useAuth();
   const updateUser = useAuthStore((s) => s.updateUser);
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  
+
+  // Wait for user to be loaded before rendering anything
+  if (!user) {
+    return (
+      <ScreenWrapper>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#42E695" />
+          <Text style={{ color: '#fff', marginTop: 12 }}>Loading...</Text>
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
   const [editing, setEditing] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
-  
+
   const [gym, setGym] = useState({
     gymName: "",
     address: "",
@@ -120,12 +131,56 @@ export default function SettingsScreen() {
     email: "",
     phone: "",
   });
-  
+
+  /* =========================================================
+     🔥 FETCH GYM IF EXISTS (FIX)
+  ========================================================= */
   useEffect(() => {
-  console.log("👤 AUTH USER OBJECT:", user);
-  console.log("🏋️ USER.GYM FROM DB:", user?.gym);
-}, [user]);
-  /* ===== SYNC USER ===== */
+    const gymStatus = user?.gym 
+      ? typeof user.gym === 'object' ? `object(${user.gym?.gymName})` : `string(${user.gym})`
+      : 'none';
+    console.log("👤 USER IN SETTINGS:", user?._id, "gym:", gymStatus);
+
+    if (!user) {
+      console.log("⏭️ No user yet");
+      return;
+    }
+
+    // ✅ STOP LOOP: do not refetch if gym already exists
+    if (user.gym && typeof user.gym === 'object' && '_id' in user.gym) {
+      console.log("⏭️ Gym already loaded, skipping fetch:", user.gym.gymName);
+      return;
+    }
+
+    const loadGym = async () => {
+      try {
+        console.log("📡 Settings: Calling /api/gym/me ...");
+
+        const res = await getMyGym();
+
+        console.log("✅ Settings: /api/gym/me RESPONSE:", res);
+
+        if (res?.gym) {
+          updateUser({ gym: res.gym });
+          console.log("✅ Settings: Gym updated in store");
+        } else if (res?.hasGym === false) {
+          console.log("⚠️ Settings: User has no gym yet");
+        }
+      } catch (e) {
+        console.log("❌ Settings: getMyGym ERROR:", e);
+      }
+    };
+
+    // Always try to fetch gym, even if user._id is undefined
+    // The token in the header will identify the user on the backend
+    loadGym();
+  }, [user?._id]);
+
+
+
+  /* =========================================================
+     SYNC USER → LOCAL STATE
+  ========================================================= */
   useEffect(() => {
     if (!user) return;
 
@@ -140,35 +195,39 @@ export default function SettingsScreen() {
       email: user.email ?? "",
       phone: user.phone ?? "",
     });
-  }, [user?._id]);
+  }, [user]);
 
-  /* ===== SAVE GYM ===== */
+  /* =========================================================
+     SAVE GYM
+  ========================================================= */
   const saveGym = async () => {
-  setLoading("gym");
-  try {
-    const savedGym = await registerGym(gym); // 👈 REAL GYM
+    setLoading("gym");
+    try {
+      const savedGym = await registerGym(gym);
 
-    updateUser({
-      gym: savedGym, // 🔥 FULL OBJECT WITH _id
-    });
+      updateUser({
+        gym: savedGym,
+      });
 
-    Toast.show({
-      type: "success",
-      text1: "Gym updated",
-    });
-    setEditing(null);
-  } catch (err) {
-    Toast.show({
-      type: "error",
-      text1: "Gym update failed",
-    });
-  } finally {
-    setLoading(null);
-  }
-};
+      Toast.show({
+        type: "success",
+        text1: "Gym updated",
+      });
 
+      setEditing(null);
+    } catch (err) {
+      Toast.show({
+        type: "error",
+        text1: "Gym update failed",
+      });
+    } finally {
+      setLoading(null);
+    }
+  };
 
-  /* ===== SAVE PROFILE FIELD ===== */
+  /* =========================================================
+     SAVE PROFILE FIELD
+  ========================================================= */
   const saveProfileField = async (
     field: keyof typeof profile
   ) => {
@@ -184,6 +243,7 @@ export default function SettingsScreen() {
         type: "success",
         text1: "Profile updated",
       });
+
       setEditing(null);
     } catch {
       Toast.show({
@@ -197,21 +257,25 @@ export default function SettingsScreen() {
 
   return (
     <ScreenWrapper>
+      
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         <SafeAreaView style={{ flex: 1 }}>
           {/* HEADER */}
-          <View style={[styles.header, { paddingTop: insets.top }]}>
-            <TouchableOpacity onPress={() => router.back()}>
-              <Ionicons name="chevron-back" size={26} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Settings</Text>
-            <View style={{ width: 26 }} />
-          </View>
+          <View style={[styles.headerWrapper, { paddingTop: insets.top }]}>
+            <View style={styles.topBar}>
+              <TouchableOpacity onPress={() => router.back()}>
+                <Ionicons name="arrow-back" size={22} color="#fff" />
+              </TouchableOpacity>
+              <Text style={styles.title}>Settings</Text>
+              <View style={{ width: 22 }} />
+            </View>
 
-          <View style={styles.separator} />
+            {/* Hairline */}
+            <View style={styles.headerDivider} />
+          </View>
 
           <ScrollView
             showsVerticalScrollIndicator={false}
@@ -258,9 +322,7 @@ export default function SettingsScreen() {
             </GlassCard>
 
             {/* ================= PERSONAL DETAILS ================= */}
-            <Text style={styles.sectionTitle}>
-              PERSONAL DETAILS
-            </Text>
+            <Text style={styles.sectionTitle}>PERSONAL DETAILS</Text>
             <GlassCard style={styles.card}>
               <SettingsRow
                 label="NAME"
@@ -324,7 +386,27 @@ export default function SettingsScreen() {
             <GlassButton
               title="Logout"
               icon="log-out-outline"
-              onPress={logout}
+              onPress={() => {
+                Alert.alert("Logout", "Are you sure you want to log out?", [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Logout",
+                    style: "destructive",
+                    onPress: async () => {
+                      try {
+                        await logout();
+                        // Give state update time to propagate before navigation
+                        setTimeout(() => {
+                          router.replace("/(auth)/login");
+                        }, 300);
+                      } catch (error) {
+                        console.error('Logout error:', error);
+                        Alert.alert("Error", "Failed to logout. Please try again.");
+                      }
+                    },
+                  },
+                ]);
+              }}
               style={{ marginTop: 32 }}
             />
           </ScrollView>
@@ -334,21 +416,32 @@ export default function SettingsScreen() {
   );
 }
 
+
 /* =========================================================
    STYLES
 ========================================================= */
 const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+  headerWrapper: {
+    backgroundColor: "transparent",
+  },
+
+  topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: "Inter-SemiBold",
+
+  headerDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+
+  title: {
     color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
   separator: {
     height: StyleSheet.hairlineWidth,

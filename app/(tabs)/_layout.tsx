@@ -104,10 +104,10 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
-          name="payments"
+          name="exercises"
           options={{
             tabBarButton: (props) => (
-              <TabButton {...props} icon="card" label="Payments" />
+              <TabButton {...props} icon="fitness" label="Exercises" />
             ),
           }}
         />

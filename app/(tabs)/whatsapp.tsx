@@ -2,24 +2,25 @@ import Header from "@/components/layout/Header";
 import ScreenWrapper from "@/components/layout/ScreenWrapper";
 import GlassCard from "@/components/ui/GlassCard";
 import { getMembers } from "@/services/member.service";
+import { useAuth } from "@/hooks/useAuth";
+import { useExercisesStore } from "@/store/exercises.store";
 import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useMemo } from "react";
 import {
   Alert,
   FlatList,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  Modal,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
-const TABS = ["All", "Active", "Expired", "Expiring Soon"];
-
-/* 🔥 FULL TEMPLATE LIST */
 const MESSAGE_TEMPLATES = [
   { id: 1, label: "Gym Closed", text: "Our gym is closed today. We will reopen tomorrow." },
   { id: 2, label: "Fees Reminder", text: "Hi 👋 Your gym membership fees are due. Please renew to continue 💪" },
@@ -49,13 +50,21 @@ const STATUS_COLORS: any = {
 };
 
 export default function WhatsAppScreen() {
+  const { user } = useAuth();
+  const gym = typeof user?.gym === 'object' ? user?.gym : null;
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("All");
   const [message, setMessage] = useState("Hi! This message is from GymEasy.");
-
-  /* ================= FETCH ================= */
+  const [showFilterPopup, setShowFilterPopup] = useState(false);
+  const [selectedMessageTemplate, setSelectedMessageTemplate] = useState<string | null>(null);
+  const [showMessageDropdown, setShowMessageDropdown] = useState(false);
+  const [selectedExerciseTemplate, setSelectedExerciseTemplate] = useState<string | null>(null);
+  const [showExerciseDropdown, setShowExerciseDropdown] = useState(false);
+  
+  const { selectedExercises } = useExercisesStore();
+  const FILTER_OPTIONS = ["All", "Active", "Expired", "Expiring Soon"];
 
   const fetchMembers = async () => {
     try {
@@ -67,11 +76,11 @@ export default function WhatsAppScreen() {
     }
   };
 
-  useFocusEffect(useCallback(() => {
-    fetchMembers();
-  }, []));
-
-  /* ================= STATUS LOGIC (SAME AS MEMBERS) ================= */
+  useFocusEffect(
+    useCallback(() => {
+      fetchMembers();
+    }, [])
+  );
 
   const getExpiryDate = (m: any): Date | null => {
     const raw =
@@ -79,7 +88,6 @@ export default function WhatsAppScreen() {
       m.expiry ||
       m.expiresAt ||
       m.membershipExpiry;
-
     if (!raw) return null;
     const d = new Date(raw);
     return isNaN(d.getTime()) ? null : d;
@@ -88,11 +96,7 @@ export default function WhatsAppScreen() {
   const isExpiringSoon = (m: any) => {
     const expiry = getExpiryDate(m);
     if (!expiry) return false;
-
-    const diff =
-      (expiry.getTime() - Date.now()) /
-      (1000 * 60 * 60 * 24);
-
+    const diff = (expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
     return diff > 0 && diff <= 7;
   };
 
@@ -104,23 +108,16 @@ export default function WhatsAppScreen() {
     return "Active";
   };
 
-  /* ================= FILTER ================= */
-
   const filteredMembers = members.filter((m) => {
     const status = getMemberStatus(m);
-    if (activeTab !== "All" && status !== activeTab) return false;
-
-    if (
-      search &&
-      !m.name?.toLowerCase().includes(search.toLowerCase()) &&
-      !m.phone?.includes(search)
-    )
-      return false;
-
+    if (activeTab !== "All") {
+      if (activeTab === "Active" && status !== "Active") return false;
+      if (activeTab === "Expired" && status !== "Expired") return false;
+      if (activeTab === "Expiring Soon" && status !== "Expiring Soon") return false;
+    }
+    if (search && !m.name?.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
-
-  /* ================= WHATSAPP ================= */
 
   const formatPhone = (phone: string) => {
     let cleaned = phone.replace(/\D/g, "");
@@ -133,10 +130,8 @@ export default function WhatsAppScreen() {
     try {
       const formatted = formatPhone(phone);
       const encoded = encodeURIComponent(message);
-
       const appUrl = `whatsapp://send?phone=${formatted}&text=${encoded}`;
       const webUrl = `https://wa.me/${formatted}?text=${encoded}`;
-
       const canOpen = await Linking.canOpenURL(appUrl);
       await Linking.openURL(canOpen ? appUrl : webUrl);
     } catch {
@@ -144,11 +139,8 @@ export default function WhatsAppScreen() {
     }
   };
 
-  /* ================= UI ================= */
-
   const renderMember = ({ item }: any) => {
     const status = getMemberStatus(item);
-
     return (
       <GlassCard style={styles.memberCard}>
         <View style={styles.memberRow}>
@@ -159,17 +151,10 @@ export default function WhatsAppScreen() {
               {item.plan || "Standard"} • ₹{item.amount}
             </Text>
           </View>
-
           <View style={styles.rightActions}>
-            <View
-              style={[
-                styles.statusBadge,
-                STATUS_COLORS[status],
-              ]}
-            >
+            <View style={[styles.statusBadge, STATUS_COLORS[status]]}>
               <Text style={styles.statusText}>{status}</Text>
             </View>
-
             <TouchableOpacity
               style={styles.whatsappGlassBtn}
               onPress={() => openWhatsApp(item.phone)}
@@ -186,10 +171,105 @@ export default function WhatsAppScreen() {
     <ScreenWrapper>
       <SafeAreaView style={{ flex: 1 }}>
         <Header title="WhatsApp" />
-
-        {/* 🔒 STICKY TOP */}
         <View style={styles.stickyContainer}>
           <GlassCard>
+            {/* TWO DROPDOWNS SIDE BY SIDE */}
+            <View style={styles.dropdownsContainer}>
+              {/* MESSAGE TEMPLATE DROPDOWN */}
+              <View style={styles.dropdownHalf}>
+                <TouchableOpacity
+                  style={styles.dropdownButton}
+                  onPress={() => {
+                    setShowMessageDropdown(!showMessageDropdown);
+                    setShowExerciseDropdown(false);
+                  }}
+                >
+                  <Ionicons name="chevron-down" size={16} color="#42E695" />
+                  <Text style={styles.dropdownLabel}>
+                    {selectedMessageTemplate || "Message"}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* MESSAGE DROPDOWN MENU */}
+                {showMessageDropdown && (
+                  <ScrollView style={styles.dropdownMenu} nestedScrollEnabled>
+                    {MESSAGE_TEMPLATES.map((template) => (
+                      <TouchableOpacity
+                        key={template.id}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setMessage(template.text);
+                          setSelectedMessageTemplate(template.label);
+                          setSelectedExerciseTemplate(null);
+                          setShowMessageDropdown(false);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.dropdownItemText,
+                            selectedMessageTemplate === template.label &&
+                              styles.dropdownItemActive,
+                          ]}
+                        >
+                          {template.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+
+              {/* EXERCISE TEMPLATE DROPDOWN */}
+              {selectedExercises.length > 0 && (
+                <View style={styles.dropdownHalf}>
+                  <TouchableOpacity
+                    style={styles.dropdownButton}
+                    onPress={() => {
+                      setShowExerciseDropdown(!showExerciseDropdown);
+                      setShowMessageDropdown(false);
+                    }}
+                  >
+                    <Ionicons name="chevron-down" size={16} color="#42E695" />
+                    <Text style={styles.dropdownLabel}>
+                      {selectedExerciseTemplate || "Exercise"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* EXERCISE DROPDOWN MENU */}
+                  {showExerciseDropdown && (
+                    <ScrollView style={styles.dropdownMenu} nestedScrollEnabled>
+                      {selectedExercises.map((exercise: any, idx: number) => (
+                        <TouchableOpacity
+                          key={idx}
+                          style={styles.dropdownItem}
+                          onPress={() => {
+                            const exerciseText = `💪 ${exercise.name}:\n${exercise.exercises
+                              ?.map((ex: string) => `• ${ex}`)
+                              .join("\n")}`;
+                            setMessage(exerciseText);
+                            setSelectedExerciseTemplate(exercise.name);
+                            setSelectedMessageTemplate(null);
+                            setShowExerciseDropdown(false);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownItemText,
+                              selectedExerciseTemplate === exercise.name &&
+                                styles.dropdownItemActive,
+                            ]}
+                          >
+                            {exercise.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                </View>
+              )}
+            </View>
+
+            {/* MESSAGE INPUT */}
             <TextInput
               value={message}
               onChangeText={setMessage}
@@ -198,52 +278,7 @@ export default function WhatsAppScreen() {
               multiline
               style={styles.messageInput}
             />
-
-            {/* 🔥 SCROLLABLE TEMPLATES */}
-            <FlatList
-              data={MESSAGE_TEMPLATES}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(i) => i.id.toString()}
-              contentContainerStyle={{ gap: 8, paddingTop: 8 }}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.templateChip}
-                  onPress={() => setMessage(item.text)}
-                >
-                  <Text style={styles.templateText}>{item.label}</Text>
-                </TouchableOpacity>
-              )}
-            />
           </GlassCard>
-
-          {/* TABS */}
-          <View style={styles.tabsRow}>
-            {TABS.map((t) => {
-              const active = activeTab === t;
-              return (
-                <TouchableOpacity
-                  key={t}
-                  style={[
-                    styles.tab,
-                    active && styles.tabActive,
-                  ]}
-                  onPress={() => setActiveTab(t)}
-                >
-                  <Text
-                    style={[
-                      styles.tabText,
-                      active && styles.tabTextActive,
-                    ]}
-                  >
-                    {t}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* SEARCH */}
           <View style={styles.glassSearch}>
             <Ionicons name="search-outline" size={18} color="#ffffffcc" />
             <TextInput
@@ -253,15 +288,58 @@ export default function WhatsAppScreen() {
               placeholderTextColor="#ffffffaa"
               style={styles.glassInput}
             />
+            <TouchableOpacity
+              style={styles.filterFab}
+              onPress={() => setShowFilterPopup(true)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="filter" size={26} color="#ffffffcc" style={{ alignSelf: 'center' }} />
+            </TouchableOpacity>
           </View>
-        </View>
 
-        {/* 📜 ONLY LIST SCROLLS */}
+          {/* FILTER TAG DISPLAY */}
+          <View style={styles.filterTagContainer}>
+            <View style={styles.filterTag}>
+              <Text style={styles.filterTagText}>{activeTab}</Text>
+            </View>
+          </View>
+
+          {/* Filter Popup */}
+          {showFilterPopup && (
+            <Modal visible transparent animationType="fade">
+              <TouchableOpacity
+                style={styles.modalOverlay}
+                activeOpacity={1}
+                onPress={() => setShowFilterPopup(false)}
+              >
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>Select Filter</Text>
+                  {FILTER_OPTIONS.map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[
+                        styles.planOption,
+                        activeTab === option && styles.planOptionActive,
+                      ]}
+                      onPress={() => {
+                        setActiveTab(option);
+                        setShowFilterPopup(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.planOptionText,
+                        activeTab === option && styles.planOptionTextActive,
+                      ]}>{option}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </TouchableOpacity>
+            </Modal>
+          )}
+        </View>
         <FlatList
           data={filteredMembers}
-          keyExtractor={(item, i) =>
-            item._id?.toString() ?? i.toString()
-          }
+          keyExtractor={(item, i) => item._id?.toString() ?? i.toString()}
           renderItem={renderMember}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 120 }}
@@ -271,19 +349,33 @@ export default function WhatsAppScreen() {
   );
 }
 
-/* ================= STYLES ================= */
-
 const styles = StyleSheet.create({
+  filterTagContainer: {
+    marginBottom: 12,
+    marginTop: 0,
+  },
+  filterTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(66,230,149,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(66,230,149,0.35)',
+  },
+  filterTagText: {
+    color: '#42E695',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   stickyContainer: {
     paddingHorizontal: 16,
     paddingTop: 14,
   },
-
   messageInput: {
     color: "#fff",
     minHeight: 70,
   },
-
   templateChip: {
     paddingHorizontal: 12,
     paddingVertical: 7,
@@ -292,18 +384,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.22)",
   },
-
   templateText: {
     color: "#fff",
     fontSize: 12,
   },
-
   tabsRow: {
     flexDirection: "row",
     gap: 10,
     marginVertical: 14,
   },
-
   tab: {
     flex: 1,
     paddingVertical: 8,
@@ -313,22 +402,18 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
   },
-
   tabActive: {
     backgroundColor: "rgba(255,255,255,0.28)",
     borderColor: "rgba(255,255,255,0.45)",
   },
-
   tabText: {
     fontSize: 12,
     color: "#cfcfcf",
   },
-
   tabTextActive: {
     color: "#fff",
     fontWeight: "500",
   },
-
   glassSearch: {
     flexDirection: "row",
     alignItems: "center",
@@ -336,65 +421,69 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 16,
     marginBottom: 10,
+    marginTop: 16, // Added margin top
     backgroundColor: "rgba(255,255,255,0.14)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.28)",
   },
-
   glassInput: {
     flex: 1,
     marginLeft: 10,
     color: "#fff",
     fontSize: 14,
   },
-
+  filterFab: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 10,
+    marginRight: 2,
+    padding: 0,
+    elevation: 0,
+    alignSelf: "center",
+  },
   memberCard: {
     marginHorizontal: 16,
     marginBottom: 14,
   },
-
   memberRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-
   memberName: {
     fontSize: 15,
     color: "#fff",
   },
-
   memberPhone: {
     fontSize: 13,
     color: "#cfcfcf",
     marginTop: 2,
   },
-
   memberMeta: {
     fontSize: 12,
     color: "#a8a8a8",
     marginTop: 3,
   },
-
   rightActions: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
-
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
     borderWidth: 1,
   },
-
   statusText: {
     fontSize: 11,
     fontWeight: "500",
     color: "#fff",
   },
-
   whatsappGlassBtn: {
     width: 36,
     height: 36,
@@ -405,4 +494,91 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#231a36',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  planOption: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 10,
+  },
+  planOptionActive: {
+    backgroundColor: 'rgba(66,230,149,0.2)',
+    borderColor: '#42E695',
+  },
+  planOptionText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  planOptionTextActive: {
+    color: '#42E695',
+  },
+  dropdownsContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  dropdownHalf: {
+    flex: 1,
+  },
+  dropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(66,230,149,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(66,230,149,0.3)',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  dropdownLabel: {
+    color: '#42E695',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dropdownMenu: {
+    maxHeight: 150,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    marginTop: 6,
+    marginBottom: 12,
+  },
+  dropdownItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  dropdownItemText: {
+    color: '#cfcfcf',
+    fontSize: 13,
+  },
+  dropdownItemActive: {
+    color: '#42E695',
+    fontWeight: '600',
+  },
+
 });
+

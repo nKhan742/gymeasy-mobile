@@ -35,10 +35,12 @@ export default function Header({ title }: HeaderProps) {
         onPress: async () => {
           try {
             await logout();
+            // Give state update time to propagate before navigation
             setTimeout(() => {
               router.replace("/(auth)/login");
-            }, 100);
-          } catch {
+            }, 300);
+          } catch (error) {
+            console.error('Logout error:', error);
             Alert.alert("Error", "Failed to logout. Please try again.");
           }
         },

@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "GymEasy",
+    "slug": "gymeasy",
+    "scheme": "gymeasy",
+    "owner": "nkhan742",
+    "android": {
+      "package": "com.gymeasy.app"
+    },
+    "ios": {
+      "bundleIdentifier": "com.gymeasy.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3b59810d-fae4-40e1-8a15-512d69b3d828"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3b59810d-fae4-40e1-8a15-512d69b3d828"
+    }
+  }
+}

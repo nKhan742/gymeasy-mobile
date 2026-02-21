@@ -37,8 +37,13 @@ api.interceptors.request.use(
 
 // Response interceptor to handle token refresh
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log("✅ API Response:", response.config.url, response.status);
+    return response;
+  },
   async (error) => {
+    console.log("❌ API Error:", error.config?.url, error.response?.status, error.response?.data?.message);
+    
     if (!error.config) {
       console.log("❌ Network-level Axios error");
       return Promise.reject(error);
@@ -52,7 +57,16 @@ api.interceptors.response.use(
       try {
         const refreshToken = await AsyncStorage.getItem("refresh_token");
 
-        if (!refreshToken) throw new Error("No refresh token");
+        if (!refreshToken) {
+          console.log("❌ No refresh token found - user needs to login");
+          // Clear all auth data
+          await AsyncStorage.multiRemove([
+            "auth_token",
+            "auth_user",
+            "refresh_token",
+          ]);
+          return Promise.reject(new Error("Session expired - please login again"));
+        }
 
         const refreshResponse = await axios.post(
           `${API_BASE_URL}/auth/refresh`,
@@ -66,6 +80,7 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return api(originalRequest);
       } catch (err) {
+        console.log("❌ Token refresh failed:", err);
         await AsyncStorage.multiRemove([
           "auth_token",
           "auth_user",

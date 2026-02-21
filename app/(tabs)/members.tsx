@@ -1,7 +1,18 @@
 import Header from "@/components/layout/Header";
 import ScreenWrapper from "@/components/layout/ScreenWrapper";
 import GlassCard from "@/components/ui/GlassCard";
-import { getMembers } from "@/services/member.service";
+import { getMembers, toggleMemberFeesPaid } from "@/services/member.service";
+import { Alert as RNAlert } from "react-native";
+import { getTodayAttendance } from "@/services/attendance.service";
+const showAlert = (title: string, message: string, actions?: any[]) => {
+  if (typeof RNAlert !== "undefined" && RNAlert.alert) {
+    RNAlert.alert(title, message, actions);
+  } else if (typeof window !== 'undefined' && window.confirm) {
+    if (window.confirm(`${title}\n${message}`)) {
+      actions && actions[1]?.onPress && actions[1].onPress();
+    }
+  }
+};
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
@@ -15,11 +26,13 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Modal,
 } from "react-native";
 
-const FILTERS = ["All", "Active", "Expired", "Expiring Soon"];
+const FILTER_OPTIONS = ["All", "Active", "Expired", "Expiring Soon", "Present", "Absent"];
 
 export default function MembersScreen() {
+  const [showFilterPopup, setShowFilterPopup] = useState(false);
   const router = useRouter();
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,21 +40,38 @@ export default function MembersScreen() {
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
 
+  const [attendanceMap, setAttendanceMap] = useState<{ [id: string]: boolean }>({});
+
   const fetchMembers = async () => {
-  try {
-    setLoading(true);
-    const data = await getMembers();
+    try {
+      setLoading(true);
+      const data = await getMembers();
+      setMembers(data || []);
+      if (data && Array.isArray(data)) {
+        fetchAttendanceForMembers(data);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    console.log("📦 MEMBERS FROM API:", data);
-    console.log("📦 IS ARRAY:", Array.isArray(data));
-    console.log("📦 LENGTH:", data?.length);
-
-    setMembers(data || []);
-  } finally {
-    setLoading(false);
-  }
-};
-
+  const fetchAttendanceForMembers = async (membersList: any[]) => {
+    const map: { [id: string]: boolean } = {};
+    await Promise.all(
+      membersList.map(async (m) => {
+        try {
+          const status = await getTodayAttendance(m._id);
+          map[m._id] = status;
+          console.log(`✅ Attendance for ${m.name}: ${status ? 'Present' : 'Absent'}`);
+        } catch (error) {
+          console.error(`❌ Failed to fetch attendance for ${m._id}:`, error);
+          map[m._id] = false;
+        }
+      })
+    );
+    console.log('📊 Attendance Map:', map);
+    setAttendanceMap(map);
+  };
 
   useEffect(() => {
     fetchMembers();
@@ -59,26 +89,33 @@ export default function MembersScreen() {
     setRefreshing(false);
   };
 
-  const isExpiringSoon = (expiryDate?: string) => {
-    if (!expiryDate) return false;
+  const isExpiringSoon = (expiry?: string) => {
+    if (!expiry) return false;
     const diff =
-      (new Date(expiryDate).getTime() - Date.now()) /
+      (new Date(expiry).getTime() - Date.now()) /
       (1000 * 60 * 60 * 24);
     return diff > 0 && diff <= 7;
   };
 
   const getMemberStatus = (member: any) => {
-    if (member.expiryDate && new Date(member.expiryDate) < new Date())
+    if (member.expiry && new Date(member.expiry) < new Date())
       return "Expired";
-    if (isExpiringSoon(member.expiryDate)) return "Expiring Soon";
+    if (isExpiringSoon(member.expiry)) return "Expiring Soon";
     return "Active";
   };
 
   const filteredMembers = members.filter((m) => {
     const status = getMemberStatus(m);
-    if (activeFilter !== "All" && status !== activeFilter) return false;
-    if (search && !m.name.toLowerCase().includes(search.toLowerCase()))
-      return false;
+    const attendedToday = attendanceMap[m._id];
+    // Filter logic for new filter options
+    if (activeFilter !== "All") {
+      if (activeFilter === "Active" && status !== "Active") return false;
+      if (activeFilter === "Expired" && status !== "Expired") return false;
+      if (activeFilter === "Expiring Soon" && status !== "Expiring Soon") return false;
+      if (activeFilter === "Present" && !attendedToday) return false;
+      if (activeFilter === "Absent" && attendedToday) return false;
+    }
+    if (search && !m.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
@@ -112,34 +149,56 @@ export default function MembersScreen() {
               autoCorrect={false}
               autoCapitalize="none"
             />
+            <TouchableOpacity
+              style={styles.filterFab}
+              onPress={() => setShowFilterPopup(true)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="filter" size={26} color="#ffffffcc" style={{ alignSelf: 'center' }} />
+            </TouchableOpacity>
           </View>
 
-          {/* FILTERS */}
-          <View style={styles.filtersRow}>
-            {FILTERS.map((f) => {
-              const isActive = activeFilter === f;
-              return (
-                <TouchableOpacity
-                  key={f}
-                  style={[
-                    styles.filterChip,
-                    isActive && styles.filterChipActive,
-                  ]}
-                  onPress={() => setActiveFilter(f)}
-                  activeOpacity={0.85}
-                >
-                  <Text
-                    style={[
-                      styles.filterText,
-                      isActive && styles.filterTextActive,
-                    ]}
-                  >
-                    {f}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+          {/* FILTER TAG DISPLAY */}
+          <View style={styles.filterTagContainer}>
+            <View style={styles.filterTag}>
+              <Text style={styles.filterTagText}>{activeFilter}</Text>
+            </View>
           </View>
+
+          {/* Filter Popup */}
+          {showFilterPopup && (
+            <Modal visible transparent animationType="fade">
+              <TouchableOpacity
+                style={styles.modalOverlay}
+                activeOpacity={1}
+                onPress={() => setShowFilterPopup(false)}
+              >
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>Select Filter</Text>
+                  {FILTER_OPTIONS.map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[
+                        styles.planOption,
+                        activeFilter === option && styles.planOptionActive,
+                      ]}
+                      onPress={() => {
+                        setActiveFilter(option);
+                        setShowFilterPopup(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.planOptionText,
+                        activeFilter === option && styles.planOptionTextActive,
+                      ]}>{option}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </TouchableOpacity>
+            </Modal>
+          )}
+
+          {/* Filter row removed. Will add filter button beside search bar. */}
 
           {/* MEMBER LIST */}
           <FlatList
@@ -165,49 +224,36 @@ export default function MembersScreen() {
               </View>
             }
             renderItem={({ item }) => {
-              console.log("Member ID:", item._id);
               const status = getMemberStatus(item);
+              const attendedToday = attendanceMap[item._id];
               return (
-                <GlassCard style={styles.memberCard}>
-                  <View style={styles.memberRow}>
-                    <View>
-                      <Text style={styles.memberName}>{item.name}</Text>
-                      <Text style={styles.memberPhone}>
-                        +91 {item.phone}
-                      </Text>
-                      <Text style={styles.memberMeta}>
-                        {item.plan || "Standard"} • ₹{item.amount}
-                      </Text>
-                    </View>
-
-                    <View style={styles.rightActions}>
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          STATUS_COLORS[status],
-                        ]}
-                      >
-                        <Text style={styles.statusText}>{status}</Text>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/members/member-profile",
+                      params: { memberId: item._id },
+                    })
+                  }
+                >
+                  <GlassCard style={styles.memberCard}>
+                    <View style={styles.memberRow}>
+                      <View>
+                        <Text style={styles.memberName}>{item.name}</Text>
+                        <Text style={styles.memberPhone}>+91 {item.phone}</Text>
+                        <Text style={styles.memberMeta}>
+                          {item.plan || "Standard"} • ₹{item.amount}
+                        </Text>
                       </View>
 
-                      <TouchableOpacity
-                        style={styles.viewBtn}
-                        onPress={() =>
-                          router.push({
-                            pathname: "/members/member-profile",
-                            params: { memberId: item._id },
-                          })
-                        }
-                      >
-                        <Ionicons
-                          name="eye-outline"
-                          size={20}
-                          color="#fff"
-                        />
-                      </TouchableOpacity>
+                      <View style={styles.attendanceBadgeContainer}>
+                        <View style={[styles.attendanceBadge, attendedToday ? styles.present : styles.absent]}>
+                          <Text style={styles.attendanceBadgeText}>{attendedToday ? 'Present' : 'Absent'}</Text>
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                </GlassCard>
+                  </GlassCard>
+                </TouchableOpacity>
               );
             }}
           />
@@ -233,6 +279,135 @@ const STATUS_COLORS: any = {
 };
 
 const styles = StyleSheet.create({
+  filterFab: {
+    marginLeft: 10,
+    marginRight: 2,
+    padding: 0,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    elevation: 0,
+    alignSelf: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#231a36',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  planOption: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 10,
+  },
+  planOptionActive: {
+    backgroundColor: 'rgba(66,230,149,0.2)',
+    borderColor: '#42E695',
+  },
+  planOptionText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  planOptionTextActive: {
+    color: '#42E695',
+  },
+  filterPopupGlass: {
+    width: 260,
+    padding: 0,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  attendanceBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  filterButton: {
+    marginLeft: 10,
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  filterPopupOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  filterPopup: {
+    width: 260,
+    backgroundColor: '#232323',
+    borderRadius: 18,
+    padding: 20,
+    alignItems: 'stretch',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  filterPopupTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  filterPopupOption: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 8,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+  },
+  filterPopupOptionActive: {
+    backgroundColor: 'rgba(34,197,94,0.18)',
+  },
+  filterPopupOptionText: {
+    color: '#fff',
+    fontSize: 15,
+  },
+  filterPopupOptionTextActive: {
+    color: '#22c55e',
+    fontWeight: 'bold',
+  },
+  filterPopupClose: {
+    marginTop: 10,
+    alignSelf: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  filterPopupCloseText: {
+    color: '#fff',
+    fontSize: 14,
+  },
   safeArea: { flex: 1 },
 
   container: {
@@ -364,5 +539,48 @@ const styles = StyleSheet.create({
     color: "#cfcfcf",
     fontSize: 16,
     textAlign: "center",
+  },
+
+  attendanceBadge: {
+    minWidth: 54,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+  },
+  present: {
+    backgroundColor: 'rgba(34,197,94,0.18)',
+    borderColor: 'rgba(34,197,94,0.45)',
+    borderWidth: 1,
+  },
+  absent: {
+    backgroundColor: 'rgba(239,68,68,0.18)',
+    borderColor: 'rgba(239,68,68,0.45)',
+    borderWidth: 1,
+  },
+  attendanceBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  filterTagContainer: {
+    marginBottom: 12,
+    marginTop: -8,
+  },
+  filterTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(66,230,149,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(66,230,149,0.35)',
+  },
+  filterTagText: {
+    color: '#42E695',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

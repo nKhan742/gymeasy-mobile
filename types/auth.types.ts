@@ -1,12 +1,14 @@
+import { Gym } from "./gym";
+
+
 export interface User {
-  id: string;
+  _id: string;
   email: string;
   name: string;
   role?: string;
-  gymId?: string;
-  gymName?: string;
   phone?: string;
-  address?: string;
+
+  gym?: string | Gym | null;      // gym ID from DB or full gym object after hydration
 }
 
 export interface LoginRequest {

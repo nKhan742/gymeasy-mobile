@@ -1,6 +1,7 @@
 // import { useNavigation } from "@react-navigation/native";
 import GlassButton from "@/components/ui/GlassButton";
 import { useAuth } from "@/hooks/useAuth";
+import { useAuthStore } from "@/store/auth.store";
 import * as Google from "expo-auth-session/providers/google";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -81,14 +82,26 @@ export default function LoginScreen() {
     }
 
     try {
+      console.log("🔐 handleLogin: Starting login with", { email: email.trim() });
       setError("");
-      await login(email.trim(), password);
+      const result = await login(email.trim(), password);
+      console.log("✅ handleLogin: Login succeeded, result:", result);
+      
+      // Check store state immediately after login
+      const finalState = useAuthStore.getState();
+      console.log("✅ handleLogin: Store state after login:", {
+        userId: finalState.user?._id,
+        userName: finalState.user?.name,
+        isAuthenticated: finalState.isAuthenticated,
+        hasToken: !!finalState.token,
+      });
+      
       // Small delay to ensure state is settled before navigation
       setTimeout(() => {
         router.replace('/(tabs)/dashboard');
       }, 100);
     } catch (error: any) {
-      console.log("LOGIN ERROR:", error.response?.data || error.message);
+      console.error("❌ handleLogin: LOGIN ERROR:", error.response?.data || error.message);
       const statusCode = error.response?.status;
       let errorMessage = "Login failed. Please try again.";
 
